@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <title>JanusEye - Réglages</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { background: #0a0a0a; color: white; font-family: sans-serif; padding: 15px; line-height: 1.4; }
+        .container { max-width: 550px; margin: 0 auto; background: #161616; padding: 20px; border-radius: 15px; border: 1px solid #222; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        
+        h2 { color: #d32f2f; font-size: 1.1em; border-bottom: 1px solid #333; padding-bottom: 8px; margin-top: 25px; text-transform: uppercase; letter-spacing: 1px; }
+        h3 { font-size: 1em; margin-bottom: 10px; }
+        
+        .group { margin-bottom: 15px; }
+        label { display: block; font-size: 0.75em; color: #888; margin-bottom: 4px; }
+        input[type="text"], input[type="password"], input[type="number"] { 
+            width: 100%; padding: 12px; background: #000; border: 1px solid #333; color: white; border-radius: 6px; box-sizing: border-box; font-size: 14px;
+        }
+        input:focus { border-color: #d32f2f; outline: none; }
+
+        /* Switches */
+        .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #222; }
+        .toggle-row span { font-size: 0.9em; color: #eee; }
+        .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 20px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #388e3c; }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        /* Disk Bar */
+        .progress-container { width: 100%; background: #222; height: 12px; border-radius: 6px; overflow: hidden; border: 1px solid #333; margin: 10px 0; }
+        .progress-bar { height: 100%; transition: width 0.8s ease-in-out; }
+
+        /* Buttons */
+        .device-row { display: flex; gap: 8px; margin-bottom: 8px; }
+        .btn-del { background: #d32f2f; border: none; color: white; border-radius: 4px; padding: 0 12px; cursor: pointer; font-weight: bold; }
+        .btn-add { background: #333; border: 1px dashed #555; color: #aaa; padding: 10px; width: 100%; border-radius: 6px; margin: 10px 0; cursor: pointer; font-size: 0.8em; }
+        .btn-add:hover { background: #388e3c; color: white; border-style: solid; }
+        
+        .footer { margin-top: 30px; display: flex; gap: 10px; position: sticky; bottom: 0; background: #161616; padding-top: 10px; }
+        .btn-save { background: #d32f2f; flex: 2; padding: 15px; border: none; color: white; font-weight: bold; border-radius: 10px; cursor: pointer; font-size: 1em; }
+        .btn-back { background: #333; flex: 1; padding: 15px; border: none; color: white; text-align: center; text-decoration: none; border-radius: 10px; font-size: 0.9em; }
+        
+        .status-card { background: #1a1a1a; padding: 15px; border-radius: 10px; border: 1px solid #333; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="status-card" style="border-left: 5px solid {% if service_status == 'Actif' %}#388e3c{% else %}#d32f2f{% endif %};">
+            <h3 style="margin: 0; color: #eee;">🛠️ ÉTAT DU SYSTÈME</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                <span style="font-size: 0.9em;">Service JanusEye : <strong style="color: {% if service_status == 'Actif' %}#388e3c{% else %}#d32f2f{% endif %};">{{ service_status }}</strong></span>
+                <span style="font-size: 0.8em; color: #888;">IP: {{ request.remote_addr }}</span>
+            </div>
+        </div>
+
+        <div class="status-card">
+            <h3 style="margin: 0; color: #00d9ff;">📊 STOCKAGE (SD CARD)</h3>
+            <div class="progress-container">
+                <div class="progress-bar" style="width: {{ disk.percent }}%; 
+                    background: {% if disk.percent > 90 %}#d32f2f{% elif disk.percent > 70 %}#fbc02d{% else %}#388e3c{% endif %};">
+                </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.75em; color: #aaa;">
+                <span>Utilisé: <b>{{ disk.used }} Go</b></span>
+                <span>Libre: <b>{{ disk.free }} Go</b> ({{ 100 - disk.percent }}%)</span>
+            </div>
+        </div>
+
+        <form action="./save_settings" method="POST">
+            <h2>SÉCURITÉ & ACCÈS</h2>
+            <div class="group">
+                <label>Code PIN Système</label>
+                <input type="password" name="web_pin" value="{{ config['SECRET'].get('web_pin', '1234') }}">
+            </div>
+
+            <h2>APPAREILS AUTORISÉS</h2>
+            <div id="device-list">
+                {% for key, name in devices.items() %}
+                <div class="device-row">
+                    <input type="text" name="device_name[]" value="{{ name }}">
+                    <button type="button" class="btn-del" onclick="this.parentElement.remove()">X</button>
+                </div>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn-add" onclick="addDevice()">+ AJOUTER UN APPAREIL</button>
+
+            <h2>IDENTIFICATION</h2>
+            <div class="group">
+                <label>Nom de cette caméra</label>
+                <input type="text" name="camera_name" value="{{ config['CAMERA'].get('name', 'JanusEye_Cam') }}">
+                <small style="font-size: 0.7em; color: #666;">Utilisé pour identifier l'origine des alertes.</small>
+            </div>
+
+            <h2>NOTIFICATIONS SMS (FREE) <a href="./test_sms" style="font-size: 0.6em; color: #ffeb3b; float: right; text-decoration: none;">[ TESTER ]</a></h2>
+            <div class="group"><label>ID Utilisateur</label><input type="text" name="free_user" value="{{ config['FREE_SMS'].get('user_id', '') }}"></div>
+            <div class="group"><label>Clé API</label><input type="password" name="free_pass" value="{{ config['FREE_SMS'].get('api_key', '') }}"></div>
+            
+            <div class="toggle-row">
+                <span>SMS si mouvement détecté</span>
+                <label class="switch"><input type="checkbox" name="sms_motion" {{ 'checked' if config['EVENTS'].getboolean('sms_motion', false) }}><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+                <span>SMS au changement d'état</span>
+                <label class="switch"><input type="checkbox" name="sms_toggle" {{ 'checked' if config['EVENTS'].getboolean('sms_toggle', false) }}><span class="slider"></span></label>
+            </div>
+	    <div class="toggle-row">
+                <span>SMS si blocage IP (3 échecs PIN)</span>
+                <label class="switch">
+                    <input type="checkbox" name="sms_on_block" {% if config['EVENTS'].getboolean('sms_on_block') %}checked{% endif %}>
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <h2>NOTIFICATIONS EMAIL <a href="./test_mail" style="font-size: 0.6em; color: #ffeb3b; float: right; text-decoration: none;">[ TESTER ]</a></h2>
+            <div class="group"><label>Serveur SMTP</label><input type="text" name="smtp_serv" value="{{ config['EMAIL'].get('smtp_server', 'smtp.gmail.com') }}"></div>
+            <div class="group"><label>Email Expéditeur</label><input type="text" name="mail_user" value="{{ config['EMAIL'].get('sender_email', '') }}"></div>
+            <div class="group"><label>Mot de passe Email</label><input type="password" name="mail_pass" value="{{ config['EMAIL'].get('sender_password', '') }}"></div>
+            <div class="group"><label>Email Destinataire</label><input type="text" name="mail_recv" value="{{ config['EMAIL'].get('receiver_email', '') }}"></div>
+
+<div class="toggle-row">
+    <span>Email avec photos (Mouvement)</span>
+    <label class="switch">
+        <input type="checkbox" name="mail_motion" {{ 'checked' if config['EVENTS'].getboolean('mail_motion', false) }}>
+        <span class="slider"></span>
+    </label>
+</div>
+
+<div class="toggle-row">
+    <span>Email au changement d'état (On/Off)</span>
+    <label class="switch">
+        <input type="checkbox" name="mail_toggle" {{ 'checked' if config['EVENTS'].getboolean('mail_toggle', false) }}>
+        <span class="slider"></span>
+    </label>
+</div>
+
+<div class="toggle-row">
+    <span>Email Alerte Sécurité (Bannissement)</span>
+    <label class="switch">
+        <input type="checkbox" name="mail_security" {{ 'checked' if config['EVENTS'].getboolean('mail_security', false) }}>
+        <span class="slider"></span>
+    </label>
+</div>
+            <h2>CONSERVATION DES DONNÉES</h2>
+            <div class="status-card" style="background: #222;">
+                <label>Rétention des vidéos (en jours)</label>
+                <input type="number" name="retention_days" value="{{ config['STORAGE'].get('retention_days', '30') }}" min="1" max="30">
+                <p style="font-size: 0.75em; color: #888; margin-top: 8px;">
+                    ⚖️ Maximum légal : 30 jours. Le nettoyage est automatique.
+                </p>
+            </div>
+
+            <div class="footer">
+                <a href="./" class="btn-back">RETOUR</a>
+                <button type="submit" class="btn-save">ENREGISTRER</button>
+            </div>
+        </form>
+
+        <div style="margin-top: 40px; padding: 15px; border: 1px solid #d32f2f; border-radius: 10px; background: rgba(211, 47, 47, 0.05);">
+            <h3 style="color: #d32f2f; margin-top: 0;">SÉCURITÉ & IP BLOQUÉES</h3>
+            <div style="margin-bottom: 15px;">
+                <ul style="color: #ff4d4d; font-family: monospace; font-size: 0.85em; padding-left: 20px;">
+                    {% for ip in banned_ips %}
+                        <li>{{ ip }} (Banni après 3 échecs)</li>
+                    {% else %}
+                        <li style="color: #888; list-style: none; margin-left: -20px;">Aucune IP bloquée pour le moment.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <a href="./restart_service" class="btn-save" style="display: block; text-align: center; text-decoration: none; padding: 10px; background: #444; font-size: 0.8em;" 
+               onclick="return confirm('Réinitialiser la liste des bannissements et redémarrer la caméra ?');">
+               🔄 DÉBLOQUER & REDÉMARRER
+            </a>
+        </div>
+    </div>
+
+    <script>
+        function addDevice() {
+            const div = document.createElement('div');
+            div.className = 'device-row';
+            div.innerHTML = '<input type="text" name="device_name[]" placeholder="Nom de l\'appareil"><button type="button" class="btn-del" onclick="this.parentElement.remove()">X</button>';
+            document.getElementById('device-list').appendChild(div);
+        }
+    </script>
+</body>
+</html>
