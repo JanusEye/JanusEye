@@ -59,6 +59,12 @@ sudo systemctl daemon-reload
 sudo systemctl enable $SERVICE_NAME
 sudo systemctl restart $SERVICE_NAME
 
+# 7 CONFIGURATION DU SCRIPT DE SAUVEGARDE ---
+echo "--- 🛡️ Configuration du module de sauvegarde ---"
+chmod +x /home/papy/JanusEye/backup_januseye.sh
+# Optionnel : Créer le dossier de destination des backups immédiatement
+mkdir -p /home/papy/Backups_JanusEye
+
 echo "------------------------------------------------"
 echo " ✅ INSTALLATION TERMINÉE AVEC SUCCÈS !"
 echo " Accès : http://$(hostname -I | awk '{print $1}'):5000"
