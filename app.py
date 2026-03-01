@@ -17,8 +17,6 @@ from flask import Flask, render_template, Response, request, redirect, session, 
 
 app = Flask(__name__)
 app.secret_key = 'JanusEye_2026_Final_V107'
-app.config['SESSION_COOKIE_NAME'] = 'session_janus1' # Ajoutez cette ligne
-app.config['SESSION_COOKIE_PATH'] = '/janus1'       # Et celle-ci
 
 # --- CONFIGURATION ---
 BASE_DIR = '/home/papy/JanusEye'
