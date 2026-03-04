@@ -60,9 +60,7 @@ def log_event(message):
 def auto_clean():
     try:
         conf = get_conf()
-        # On récupère le réglage 'retention_days' (30 par défaut)
         days = conf['STORAGE'].get('retention_days', '30')
-        # On trouve le chemin du script clean_videos.sh dans le même dossier que app.py
         script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "clean_videos.sh")
         
         if os.path.exists(script_path):
@@ -73,7 +71,6 @@ def auto_clean():
 
 def get_service_status():
     try:
-        # Vérifie si le service januseye est actif
         status = subprocess.check_output(['systemctl', 'is-active', 'januseye.service'], stderr=subprocess.STDOUT).decode().strip()
         return "Actif" if status == "active" else "Inactif"
     except:
@@ -147,6 +144,17 @@ def load_presence():
 def save_presence(presence_set):
     with open(PRESENCE_FILE, 'w') as f:
         f.write(", ".join(list(presence_set)))
+
+def sync_alarm_with_presence():
+    """Synchronise l'état de l'alarme avec le fichier presence au démarrage."""
+    global alarm_armed
+    presence = load_presence()
+    if not presence:
+        alarm_armed = True
+        log_event("SYSTEME : Mode automatique - Aucune présence, alarme ARMEE.")
+    else:
+        alarm_armed = False
+        log_event(f"SYSTEME : Mode automatique - Présence détectée ({', '.join(presence)}), alarme DESACTIVEE.")
 
 def draw_timestamp_with_bg(frame):
     h, w, _ = frame.shape
@@ -239,7 +247,6 @@ def camera_worker():
                     global_frame = draw_timestamp_with_bg(frame.copy())
                 continue
 
-            # --- ANALYSE MOUVEMENT AVEC CADRES ---
             small = cv2.resize(frame, (320, 240))
             gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
             gray = cv2.GaussianBlur(gray, (21, 21), 0)
@@ -255,10 +262,9 @@ def camera_worker():
                 
                 movement_in_frame = False
                 for c in contours:
-                    if cv2.contourArea(c) > (sens / 5): # Seuil de déclenchement par contour
+                    if cv2.contourArea(c) > (sens / 5):
                         movement_in_frame = True
                         (x, y, w_b, h_b) = cv2.boundingRect(c)
-                        # Redimensionnement des cadres pour l'image haute résolution
                         r_w = frame.shape[1] / 320
                         r_h = frame.shape[0] / 240
                         motion_boxes.append((int(x*r_w), int(y*r_h), int(w_b*r_w), int(h_b*r_h)))
@@ -274,7 +280,6 @@ def camera_worker():
                                 h_now = datetime.now().strftime("%H:%M:%S")
                                 Thread(target=send_free_sms, args=(f"Mouvement detecte a {h_now}",), daemon=True).start()
                                 last_sms_time = time.time()
-
 
                 if motion_timer > 0:
                     motion_timer -= 1
@@ -296,7 +301,6 @@ def camera_worker():
             last_gray = gray
             with lock:
                 global_frame = draw_timestamp_with_bg(frame.copy())
-                # Dessin des cadres de mouvement sur le flux direct
                 for (bx, by, bw, bh) in motion_boxes:
                     cv2.rectangle(global_frame, (bx, by), (bx + bw, by + bh), (0, 255, 0), 2)
                 if is_recording:
@@ -321,18 +325,11 @@ def index():
         with open(LOG_FILE, "r") as f:
             for line in f.readlines()[-20:]:
                 line = line.strip()
-                color = "#aaaaaa" # Gris par défaut
-                
-                # --- LOGIQUE DE COLORATION MODIFIÉE ---
-                if "DESACTIVE par" in line:
-                    color = "#4dff4d" # VERT ÉCLATANT pour la désactivation
-                elif any(x in line for x in ["ACTIVE par", "MOUVEMENT : Debut", "Blocage", "SECURITE"]):
-                    color = "#ff4d4d" # ROUGE pour l'armement et les alertes
-                elif "SMS ENVOYE" in line:
-                    color = "#ffff00" # JAUNE
-                elif "EMAIL" in line:
-                    color = "#00d9ff" # BLEU
-                
+                color = "#aaaaaa"
+                if "DESACTIVE par" in line: color = "#4dff4d"
+                elif any(x in line for x in ["ACTIVE par", "MOUVEMENT : Debut", "Blocage", "SECURITE"]): color = "#ff4d4d"
+                elif "SMS ENVOYE" in line: color = "#ffff00"
+                elif "EMAIL" in line: color = "#00d9ff"
                 logs_list.append({'text': line, 'color': color})
             logs_list.reverse()
     return render_template('index.html', status="ACTIVÉE" if alarm_armed else "DÉSACTIVÉE", logs=logs_list, armed=alarm_armed, presence_status=pres_status, recording=is_recording)
@@ -367,28 +364,43 @@ def login():
 
 @app.route('/arm')
 def arm_webhook():
-    global alarm_armed, is_recording, last_email_time, last_sms_time
+    global alarm_armed, is_recording
     conf = get_conf(); action = request.args.get('action')
-    device = request.args.get('device', 'Manuel').replace('iPhone_', '').capitalize()
+    device_raw = request.args.get('device', 'Manuel')
+    device = device_raw.replace('iPhone_', '').capitalize()
     presence = load_presence(); ip = get_real_ip()
+    
     if action == 'off':
-        presence.add(device.lower())
-        log_event(f"PRESENCE : Entree de {device} (IP: {ip})") 
+        # Si c'est un smartphone qui arrive, on l'ajoute à la présence
+        if device_raw != 'Manuel':
+            presence.add(device.lower())
+            log_event(f"PRESENCE : Entree de {device} (IP: {ip})") 
+        else:
+            log_event(f"PRESENCE : Desarmement MANUEL (IP: {ip})")
+
+        # Dans tous les cas (Manuel ou Smartphone), on coupe l'alarme
         if alarm_armed:
             alarm_armed = False; msg = f"DESACTIVE par {device}"
             log_event(f"{msg} - IP: {ip}")
             if conf['EVENTS'].getboolean('sms_toggle', False): Thread(target=send_free_sms, args=(msg,), daemon=True).start()
-            if conf['EVENTS'].getboolean('mail_toggle', False): Thread(target=send_mail_async, args=([], ip, "ETAT ALARME", f"DESACTIVE par {device}"), daemon=True).start()
+            if conf['EVENTS'].getboolean('mail_toggle', False): Thread(target=send_mail_async, args=([], ip, "ETAT ALARME", msg), daemon=True).start()
+    
     elif action == 'on':
-        presence.discard(device.lower())
-        log_event(f"PRESENCE : Sortie de {device} (IP: {ip})")
-        if not presence and not alarm_armed:
+        # Si c'est un smartphone qui part, on le retire
+        if device_raw != 'Manuel':
+            presence.discard(device.lower())
+            log_event(f"PRESENCE : Sortie de {device} (IP: {ip})")
+        
+        # LOGIQUE DE RÉARMEMENT :
+        # On arme si la maison est vide (les smartphones sont partis)
+        # OU si on clique sur "Armer" manuellement sur l'interface
+        if (not presence or device_raw == 'Manuel') and not alarm_armed:
             alarm_armed = True; msg = f"ACTIVE par {device}"
             log_event(f"{msg} - IP: {ip}")
-            # Lancement du nettoyage automatique à l'activation
             auto_clean()
             if conf['EVENTS'].getboolean('sms_toggle', False): Thread(target=send_free_sms, args=(msg,), daemon=True).start()
-            if conf['EVENTS'].getboolean('mail_toggle', False): Thread(target=send_mail_async, args=([], ip, "ETAT ALARME", f"ACTIVE par {device}"), daemon=True).start()
+            if conf['EVENTS'].getboolean('mail_toggle', False): Thread(target=send_mail_async, args=([], ip, "ETAT ALARME", msg), daemon=True).start()
+            
     save_presence(presence)
     if request.args.get('source') == 'web': return redirect("./")
     return "OK"
@@ -444,20 +456,12 @@ def settings():
         'percent': round((used / total) * 100, 1)
     }
     banned_list = [ip for ip, count in login_attempts.items() if count >= 3]
-
-    service_status = "Inactif"
-    try:
-        status = subprocess.check_output(['systemctl', 'is-active', 'januseye.service'], stderr=subprocess.STDOUT).decode().strip()
-        if status == "active": service_status = "Actif"
-    except:
-        service_status = "Non installé"
-
-    return render_template('settings.html', config=get_conf(), devices=get_conf()['DEVICES'], banned_ips=banned_list, disk=disk_info, service_status=service_status)
+    return render_template('settings.html', config=get_conf(), devices=get_conf()['DEVICES'], banned_ips=banned_list, disk=disk_info, service_status=get_service_status())
 
 @app.route('/restart_service')
 def restart_service():
     if not session.get('logged_in'): return redirect("./login")
-    log_event("SYSTEME : Redémarrage du service (RAZ des blocages IP).")
+    log_event("SYSTEME : Redémarrage du service.")
     def perform_restart():
         time.sleep(2)
         os.system('sudo systemctl restart januseye.service')
@@ -539,4 +543,5 @@ def update_cam():
 
 if __name__ == '__main__':
     auto_clean()
+    sync_alarm_with_presence()
     app.run(host='0.0.0.0', port=5000, threaded=True)
