@@ -3,7 +3,8 @@
 
 💡 CONCEPT
 
-JanusEye est une alarme silencieuse par détection vidéo. Contrairement aux alarmes classiques, il n'émet aucun son strident mais vous alerte instantanément par Notifications (NTFY), SMS et Email avec preuves visuelles à l'appui.
+JanusEye est une alarme silencieuse par détection vidéo. Contrairement aux alarmes classiques, il n'émet aucun son 
+strident mais vous alerte instantanément par Notifications (NTFY), SMS et Email avec preuves visuelles à l'appui.
 
 ✨ POINTS FORTS
 
@@ -12,11 +13,14 @@ JanusEye est une alarme silencieuse par détection vidéo. Contrairement aux ala
         SMS : Alerte texte rapide (via Free Mobile).
         EMAIL : Rapport complet avec plusieurs clichés de l'intrusion.
 
-    DISCRÉTION : Capture de photos haute résolution lors des mouvements pour ne pas saturer le processeur du Raspberry Pi et économiser l'espace de stockage.
+    DISCRÉTION : Capture de photos haute résolution lors des mouvements pour ne pas saturer le processeur du Raspberry
+    Pi et économiser l'espace de stockage.
 
-    AUTOMATISATION TOTALE : La surveillance s'active automatiquement quand le dernier occupant quitte les lieux et se désactive dès l'arrivée d'un smartphone autorisé. Aucun oubli possible.
+    AUTOMATISATION TOTALE : La surveillance s'active automatiquement quand le dernier occupant quitte les lieux et se
+    désactive dès l'arrivée d'un smartphone autorisé. Aucun oubli possible.
 
-    SÉCURITÉ RENFORCÉE : Système d'autodéfense enregistrant et bloquant l'ADRESSE IP après 3 tentatives infructueuses du code PIN.
+    SÉCURITÉ RENFORCÉE : Système d'autodéfense enregistrant et bloquant l'ADRESSE IP après 3 tentatives infructueuses
+    du code PIN.
 
  📦 CONTENU DE L'ARCHIVE
 
