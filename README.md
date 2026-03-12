@@ -1,7 +1,6 @@
 ** 🛡️ JANUSEYE - SYSTÈME DE SURVEILLANCE
      "SILENCIEUX & INTELLIGENT" — Version v.1.0.4 **
 
----
 💡 CONCEPT
 
 JanusEye est une alarme silencieuse par détection vidéo. Contrairement aux alarmes classiques, il n'émet aucun son strident mais vous alerte instantanément par Notifications (NTFY), SMS et Email avec preuves visuelles à l'appui.
