@@ -53,6 +53,8 @@
                 <span style="font-size: 0.9em;">Service JanusEye : <strong style="color: {% if service_status == 'Actif' %}#388e3c{% else %}#d32f2f{% endif %};">{{ service_status }}</strong></span>
                 <span style="font-size: 0.8em; color: #888;">IP: {{ request.remote_addr }}</span>
             </div>
+            <p> </p>
+            <small style="color: #888;">Note : Une stabilisation automatique de 5s est appliquée après chaque changement pour éviter les fausses alertes.</small>
         </div>
 
         <div class="status-card">
@@ -142,6 +144,38 @@
         <span class="slider"></span>
     </label>
 </div>
+
+<h2>NOTIFICATIONS NTFY <a href="./test_ntfy" style="font-size: 0.6em; color: #ffeb3b; float: right; text-decoration: none;">[ TESTER ]</a></h2>
+            <div class="group">
+                <label>Nom du Topic (Unique)</label>
+                <input type="text" name="ntfy_topic" value="{{ config['NTFY'].get('topic', 'JanusEye-1-7b3f92k8q') }}">
+                <small style="font-size: 0.7em; color: #666;">Copiez ce nom dans l'application ntfy sur votre téléphone.</small>
+            </div>
+
+            <div class="toggle-row">
+                <span>Notification si mouvement détecté</span>
+                <label class="switch">
+                    <input type="checkbox" name="ntfy_motion" {{ 'checked' if config['EVENTS'].getboolean('ntfy_motion', false) }}>
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="toggle-row">
+                <span>Notification au changement d'état</span>
+                <label class="switch">
+                    <input type="checkbox" name="ntfy_toggle" {{ 'checked' if config['EVENTS'].getboolean('ntfy_toggle', false) }}>
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="toggle-row">
+                <span>Notification si blocage IP (Alerte Sécurité)</span>
+                <label class="switch">
+                    <input type="checkbox" name="ntfy_on_block" {{ 'checked' if config['EVENTS'].getboolean('ntfy_on_block', false) }}>
+                    <span class="slider"></span>
+                </label>
+            </div>
+
             <h2>CONSERVATION DES DONNÉES</h2>
             <div class="status-card" style="background: #222;">
                 <label>Rétention des vidéos (en jours)</label>
