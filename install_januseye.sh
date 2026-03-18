@@ -1,11 +1,16 @@
 #!/bin/bash
 
-# Configuration des chemins
-INSTALL_DIR="/home/papy/JanusEye"
+# --- CONFIGURATION DYNAMIQUE ---
+# Détecte l'utilisateur qui lance le script
+USER_NAME=$(whoami)
+# Détecte le dossier actuel où se trouve le script d'installation
+INSTALL_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 SERVICE_NAME="januseye.service"
 
 echo "------------------------------------------------"
 echo "   JanusEye 2026 - Installation Automatisée"
+echo "   Utilisateur : $USER_NAME"
+echo "   Dossier     : $INSTALL_DIR"
 echo "------------------------------------------------"
 
 # 1. Création de la structure des dossiers
@@ -16,34 +21,38 @@ mkdir -p "$INSTALL_DIR/config"
 mkdir -p "$INSTALL_DIR/templates"
 
 # 2. Installation des dépendances système
-echo "[2/6] Installation des paquets système (Python & Camera)..."
+echo "[2/6] Installation des paquets système..."
 sudo apt-get update
 sudo apt-get install -y python3-venv python3-pip libopencv-dev python3-opencv
 
-# 3. Création de l'environnement virtuel (VENV)
+# 3. Configuration de l'environnement virtuel (VENV)
 echo "[3/6] Configuration de l'environnement Python..."
 cd "$INSTALL_DIR"
 if [ ! -d "venv" ]; then
     python3 -m venv venv
 fi
-source venv/bin/activate
-pip install --upgrade pip
-pip install flask opencv-python numpy requests
+# On utilise le chemin complet vers pip du venv pour plus de sécurité
+"$INSTALL_DIR/venv/bin/pip" install --upgrade pip
+"$INSTALL_DIR/venv/bin/pip" install flask opencv-python numpy requests
 
 # 4. Configuration des permissions
 echo "[4/6] Réglage des droits d'exécution..."
-chmod +x "$INSTALL_DIR/clean_videos.sh"
-sudo chown -R papy:papy "$INSTALL_DIR"
+if [ -f "$INSTALL_DIR/clean_videos.sh" ]; then
+    chmod +x "$INSTALL_DIR/clean_videos.sh"
+fi
+# On donne les droits au bon utilisateur détecté
+sudo chown -R $USER_NAME:$USER_NAME "$INSTALL_DIR"
 
-# 5. Création du service Systemd pour le démarrage automatique
+# 5. Création du service Systemd
 echo "[5/6] Configuration du service de démarrage..."
+# On utilise des variables pour rendre le fichier de service flexible
 sudo bash -c "cat > /etc/systemd/system/$SERVICE_NAME" << EOF
 [Unit]
 Description=Serveur de Surveillance JanusEye
 After=network.target
 
 [Service]
-User=papy
+User=$USER_NAME
 WorkingDirectory=$INSTALL_DIR
 ExecStart=$INSTALL_DIR/venv/bin/python $INSTALL_DIR/app.py
 Restart=always
@@ -58,12 +67,6 @@ echo "[6/6] Activation et lancement..."
 sudo systemctl daemon-reload
 sudo systemctl enable $SERVICE_NAME
 sudo systemctl restart $SERVICE_NAME
-
-# 7 CONFIGURATION DU SCRIPT DE SAUVEGARDE ---
-echo "--- 🛡️ Configuration du module de sauvegarde ---"
-chmod +x /home/papy/JanusEye/backup_januseye.sh
-# Optionnel : Créer le dossier de destination des backups immédiatement
-mkdir -p /home/papy/Backups_JanusEye
 
 echo "------------------------------------------------"
 echo " ✅ INSTALLATION TERMINÉE AVEC SUCCÈS !"
