@@ -22,6 +22,13 @@ JanusEye est une alarme silencieuse par détection vidéo. Contrairement
      pour ne pas saturer le processeur du Raspberry Pi et économiser 
      l'espace de stockage.
 
+    PERFORMANCE HD & ASYNCHRONE : Capture en 720p HD. L'écriture des
+    photos est gérée en arrière-plan (Multi-threading) pour ne jamais
+    ralentir le flux vidéo.
+
+    TRAÇABILITÉ : Les cadres de détection verts sont "gravés" sur les
+    images pour identifier instantanément l'origine du mouvement.
+
     AUTOMATISATION TOTALE : La surveillance s'active automatiquement
     quand le dernier occupant quitte les lieux et se désactive dès 
     l'arrivée d'un smartphone autorisé. Aucun oubli possible.
