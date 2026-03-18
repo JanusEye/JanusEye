@@ -35,14 +35,24 @@ last_ntfy_time = 0
 login_attempts = {} 
 lock = Lock()
 last_param_change = 0
+current_config = None # Cache mémoire pour les réglages
 
 def get_conf():
+    """Récupère la configuration depuis le disque."""
     c = configparser.ConfigParser()
     if os.path.exists(CONF_PATH):
         c.read(CONF_PATH)
     for s in ['SECRET', 'DEVICES', 'EMAIL', 'EVENTS', 'FREE_SMS', 'CAMERA', 'STORAGE', 'NTFY']:
         if s not in c: c[s] = {}
     return c
+
+def refresh_config_cache():
+    """Met à jour le cache mémoire pour éviter les lectures disque répétitives."""
+    global current_config
+    current_config = get_conf()
+
+# Initialisation du cache au démarrage
+refresh_config_cache()
 
 def get_real_ip():
     try:
@@ -60,7 +70,7 @@ def log_event(message):
 
 def auto_clean():
     try:
-        conf = get_conf()
+        conf = current_config # Utilisation du cache
         days = conf['STORAGE'].get('retention_days', '30')
         script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "clean_videos.sh")
         if os.path.exists(script_path):
@@ -80,7 +90,7 @@ def get_service_status():
 
 def send_ntfy_alert(message, image_path=None):
     try:
-        conf = get_conf()
+        conf = current_config
         topic = conf['NTFY'].get('topic', '').strip()
         if not topic: return
         
@@ -103,7 +113,7 @@ def send_ntfy_alert(message, image_path=None):
         log_event(f"ERREUR NTFY : {str(e)}")
 
 def send_free_sms(message):
-    conf = get_conf()
+    conf = current_config
     user = conf['FREE_SMS'].get('user_id')
     api_key = conf['FREE_SMS'].get('api_key')
     cam_name = conf['CAMERA'].get('name', 'JanusEye_Cam')
@@ -125,7 +135,7 @@ def send_free_sms(message):
     return False
 
 def send_mail_async(paths, info_ip, subject_suffix="ALERTE", action_desc="Détection"):
-    conf = get_conf()
+    conf = current_config
     cam_name = conf['CAMERA'].get('name', 'JanusEye_Cam')
     try:
         msg = MIMEMultipart()
@@ -178,7 +188,7 @@ def sync_alarm_with_presence():
 
 def draw_timestamp_with_bg(frame):
     h, w, _ = frame.shape
-    conf = get_conf()
+    conf = current_config # Utilisation du cache
     cam_name = conf['CAMERA'].get('name', 'JanusEye_Cam')
     ts = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -205,6 +215,18 @@ def gen_frames():
                 _, buffer = cv2.imencode('.jpg', global_frame)
         yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
         time.sleep(0.04)
+        
+def save_photo_async(path, frame, boxes):
+    """ Enregistre l'image et dessine les cadres en arrière-plan """
+    try:
+        # On dessine les cadres sur l'image reçue
+        for (bx, by, bw, bh) in boxes:
+            cv2.rectangle(frame, (bx, by), (bx + bw, by + bh), (0, 255, 0), 2)
+        
+        # Enregistrement avec optimisation de vitesse
+        cv2.imwrite(path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+    except Exception as e:
+        print(f"Erreur sauvegarde async : {e}")
 
 def camera_worker():
     global global_frame, alarm_armed, is_recording, last_email_time, last_sms_time, last_ntfy_time, last_param_change
@@ -213,18 +235,23 @@ def camera_worker():
     current_res = ""
     motion_timer = 0
     mail_paths = []
+    warmup_frames = 0
+    persistent_boxes = [] # Pour garder les cadres durant la sauvegarde
 
     while True:
         if alarm_armed:
             conf = get_conf()
             target_res = conf['CAMERA'].get('size', '640x480')
+            
             if cap is not None and target_res != current_res:
                 cap.release(); cap = None
+                warmup_frames = 0
                 last_param_change = time.time(); time.sleep(1)
 
             if cap is None or not cap.isOpened():
                 cap = cv2.VideoCapture(0)
                 current_res = target_res
+                warmup_frames = 0
                 try:
                     w, h = map(int, current_res.split('x'))
                     cap.set(cv2.CAP_PROP_FRAME_WIDTH, w); cap.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
@@ -243,57 +270,77 @@ def camera_worker():
             elif rot_val == '180': frame = cv2.rotate(frame, cv2.ROTATE_180)
             elif rot_val == '270': frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
-            if (time.time() - last_param_change) < 5:
+            if warmup_frames < 30 or (time.time() - last_param_change) < 5:
+                warmup_frames += 1
                 small_temp = cv2.resize(frame, (320, 240))
                 last_gray = cv2.GaussianBlur(cv2.cvtColor(small_temp, cv2.COLOR_BGR2GRAY), (21, 21), 0)
-                with lock: global_frame = draw_timestamp_with_bg(frame.copy())
-                continue
+                with lock: 
+                    global_frame = draw_timestamp_with_bg(frame.copy())
+                continue 
 
+            # --- ANALYSE DE MOUVEMENT ---
             small = cv2.resize(frame, (320, 240))
             gray = cv2.GaussianBlur(cv2.cvtColor(small, cv2.COLOR_BGR2GRAY), (21, 21), 0)
+            current_boxes = []
 
-            motion_boxes = []
             if last_gray is not None and last_gray.shape == gray.shape:
                 delta = cv2.absdiff(last_gray, gray)
                 thresh = cv2.dilate(cv2.threshold(delta, 25, 255, cv2.THRESH_BINARY)[1], None, iterations=2)
                 sens = int(conf['CAMERA'].get('sensitivity', 5000))
                 contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                 
-                movement_in_frame = False
                 for c in contours:
                     if cv2.contourArea(c) > (sens / 5):
-                        movement_in_frame = True
                         (x, y, w_b, h_b) = cv2.boundingRect(c)
                         r_w, r_h = frame.shape[1] / 320, frame.shape[0] / 240
-                        motion_boxes.append((int(x*r_w), int(y*r_h), int(w_b*r_w), int(h_b*r_h)))
+                        current_boxes.append((int(x*r_w), int(y*r_h), int(w_b*r_w), int(h_b*r_h)))
 
-                if movement_in_frame:
-                    motion_timer = 10
+                if current_boxes:
+                    motion_timer = 12 # Durée de l'enregistrement après détection
+                    persistent_boxes = current_boxes # On mémorise les cadres
                     if not is_recording:
                         is_recording = True; mail_paths = []; h_now = datetime.now().strftime("%H:%M:%S")
                         log_event("MOUVEMENT : Debut de l'enregistrement.")
                         
-                        if (time.time() - last_ntfy_time) > 30:
-                            p_ntfy = os.path.join(VIDEO_DIR, f"Alerte_JanusEye_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.jpg")
-                            if cv2.imwrite(p_ntfy, frame):
-                                Thread(target=send_ntfy_alert, args=(f"Mouvement détecté à {h_now}", p_ntfy), daemon=True).start()
-                                last_ntfy_time = time.time()
+                        if conf['EVENTS'].getboolean('ntfy_motion', True):
+                            if (time.time() - last_ntfy_time) > 30:
+                                f_ntfy = draw_timestamp_with_bg(frame.copy())
+                                for b in persistent_boxes: cv2.rectangle(f_ntfy, (b[0], b[1]), (b[0]+b[2], b[1]+b[3]), (0, 255, 0), 2)
+                                p_ntfy = os.path.join(VIDEO_DIR, f"Alerte_JanusEye_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.jpg")
+                                if cv2.imwrite(p_ntfy, f_ntfy):
+                                    Thread(target=send_ntfy_alert, args=(f"Mouvement détecté à {h_now}", p_ntfy), daemon=True).start()
+                                    last_ntfy_time = time.time()
 
                         if conf['EVENTS'].getboolean('sms_motion', False):
                             if (time.time() - last_sms_time) > 60:
                                 Thread(target=send_free_sms, args=(f"Mouvement detecte a {h_now}",), daemon=True).start()
                                 last_sms_time = time.time()
 
+# --- GESTION ENREGISTREMENT PHOTO (MULTI-THREAD) ---
             if motion_timer > 0:
                 motion_timer -= 1
-                if motion_timer % 2 == 0:
-                    f_save = draw_timestamp_with_bg(frame.copy())
-                    for (bx, by, bw, bh) in motion_boxes: cv2.rectangle(f_save, (bx, by), (bx + bw, by + bh), (0, 255, 0), 2)
+                # On peut maintenant enregistrer plus souvent car c'est asynchrone !
+                if motion_timer % 1 == 0 and persistent_boxes:
+                    # On prépare l'image avec le timestamp
+                    f_to_save = draw_timestamp_with_bg(frame.copy())
+                    
                     fname = f"Photo_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')[:-4]}.jpg"
-                    p = os.path.join(VIDEO_DIR, fname); cv2.imwrite(p, f_save)
-                    if len(mail_paths) < 5: mail_paths.append(p)
+                    p = os.path.join(VIDEO_DIR, fname)
+                    
+                    # ON LANCE LA SAUVEGARDE DANS UN THREAD SÉPARÉ
+                    # On passe une COPIE des persistent_boxes pour éviter les conflits
+                    Thread(target=save_photo_async, args=(p, f_to_save, list(persistent_boxes)), daemon=True).start()
+                    
+                    # On ajoute le chemin pour les futurs mails
+                    if len(mail_paths) < 5: 
+                        mail_paths.append(p)
+                
+                if not current_boxes:
+                    persistent_boxes = []
+
             elif is_recording:
                 is_recording = False; log_event("FIN DE MOUVEMENT.")
+                persistent_boxes = []
                 if mail_paths and (time.time() - last_email_time) > 60:
                     Thread(target=send_mail_async, args=(list(mail_paths), "Detection Interne", "ALERTE MOUVEMENT", "Mouvement"), daemon=True).start()
                     last_email_time = time.time()
@@ -301,11 +348,15 @@ def camera_worker():
             last_gray = gray
             with lock:
                 global_frame = draw_timestamp_with_bg(frame.copy())
-                for (bx, by, bw, bh) in motion_boxes: cv2.rectangle(global_frame, (bx, by), (bx + bw, by + bh), (0, 255, 0), 2)
-                if is_recording: cv2.rectangle(global_frame, (2,2), (global_frame.shape[1]-2, global_frame.shape[0]-2), (0,0,255), 2)
+                # Utilise current_boxes pour le live pour être hyper réactif
+                for b in current_boxes: 
+                    cv2.rectangle(global_frame, (b[0], b[1]), (b[0]+b[2], b[1]+b[3]), (0, 255, 0), 2)
+                if is_recording: 
+                    cv2.rectangle(global_frame, (2,2), (global_frame.shape[1]-2, global_frame.shape[0]-2), (0,0,255), 2)
+            
             time.sleep(0.01)
         else:
-            if cap: cap.release(); cap = None
+            if cap: cap.release(); cap = None; warmup_frames = 0
             with lock: global_frame = None
             is_recording = False; time.sleep(1)
 
@@ -316,7 +367,7 @@ Thread(target=camera_worker, daemon=True).start()
 @app.route('/')
 def index():
     if not session.get('logged_in'): return redirect("./login")
-    conf = get_conf(); presence = load_presence()
+    conf = current_config; presence = load_presence()
     pres_status = {name: ("Présent" if name.lower() in presence else "Absent") for name in conf['DEVICES'].values()}
     logs_list = []
     if os.path.exists(LOG_FILE):
@@ -334,7 +385,7 @@ def index():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     global login_attempts
-    ip, conf = get_real_ip(), get_conf()
+    ip, conf = get_real_ip(), current_config
     if ip not in login_attempts: login_attempts[ip] = 0
     if request.method == 'POST':
         if login_attempts[ip] >= 3: return render_template('login.html', error="Compte bloqué (3 échecs). Redémarrez le service.")
@@ -347,7 +398,8 @@ def login():
             if login_attempts[ip] == 3:
                 log_event(f"SECURITE : Blocage définitif de l'IP {ip}")
                 msg_b = f"⚠️ ALERTE : IP {ip} bloquée après 3 échecs PIN."
-                Thread(target=send_ntfy_alert, args=(msg_b,), daemon=True).start()
+                # Respect option NTFY on Block
+                if conf['EVENTS'].getboolean('ntfy_on_block', True): Thread(target=send_ntfy_alert, args=(msg_b,), daemon=True).start()
                 if conf['EVENTS'].getboolean('sms_on_block', False): Thread(target=send_free_sms, args=(msg_b,), daemon=True).start()
                 if conf['EVENTS'].getboolean('mail_security', False): Thread(target=send_mail_async, args=([], ip, "ALERTE SECURITE", msg_b), daemon=True).start()
             return render_template('login.html', error=f"Incorrect ({login_attempts[ip]}/3)")
@@ -356,7 +408,7 @@ def login():
 @app.route('/arm')
 def arm_webhook():
     global alarm_armed, is_recording
-    conf, action, ip = get_conf(), request.args.get('action'), get_real_ip()
+    conf, action, ip = current_config, request.args.get('action'), get_real_ip()
     device_raw = request.args.get('device', 'Manuel')
     device, presence = device_raw.replace('iPhone_', '').capitalize(), load_presence()
     if action == 'off':
@@ -364,14 +416,16 @@ def arm_webhook():
         else: log_event(f"PRESENCE : Desarmement MANUEL (IP: {ip})")
         if alarm_armed:
             alarm_armed, msg = False, f"DESACTIVE par {device}"; log_event(f"{msg} - IP: {ip}")
-            Thread(target=send_ntfy_alert, args=(f"🔓 {msg}",), daemon=True).start()
+            # Respect option NTFY Toggle
+            if conf['EVENTS'].getboolean('ntfy_toggle', True): Thread(target=send_ntfy_alert, args=(f"🔓 {msg}",), daemon=True).start()
             if conf['EVENTS'].getboolean('sms_toggle', False): Thread(target=send_free_sms, args=(msg,), daemon=True).start()
             if conf['EVENTS'].getboolean('mail_toggle', False): Thread(target=send_mail_async, args=([], ip, "ETAT ALARME", msg), daemon=True).start()
     elif action == 'on':
         if device_raw != 'Manuel': presence.discard(device.lower()); log_event(f"PRESENCE : Sortie de {device} (IP: {ip})")
         if (not presence or device_raw == 'Manuel') and not alarm_armed:
             alarm_armed, msg = True, f"ACTIVE par {device}"; log_event(f"{msg} - IP: {ip}"); auto_clean()
-            Thread(target=send_ntfy_alert, args=(f"🔒 {msg}",), daemon=True).start()
+            # Respect option NTFY Toggle
+            if conf['EVENTS'].getboolean('ntfy_toggle', True): Thread(target=send_ntfy_alert, args=(f"🔒 {msg}",), daemon=True).start()
             if conf['EVENTS'].getboolean('sms_toggle', False): Thread(target=send_free_sms, args=(msg,), daemon=True).start()
             if conf['EVENTS'].getboolean('mail_toggle', False): Thread(target=send_mail_async, args=([], ip, "ETAT ALARME", msg), daemon=True).start()
     save_presence(presence)
@@ -415,7 +469,7 @@ def settings():
     total, used, free = shutil.disk_usage("/")
     disk_info = {'total': round(total / (2**30), 1), 'used': round(used / (2**30), 1), 'free': round(free / (2**30), 1), 'percent': round((used / total) * 100, 1)}
     banned_list = [ip for ip, count in login_attempts.items() if count >= 3]
-    return render_template('settings.html', config=get_conf(), devices=get_conf()['DEVICES'], banned_ips=banned_list, disk=disk_info, service_status=get_service_status())
+    return render_template('settings.html', config=current_config, devices=current_config['DEVICES'], banned_ips=banned_list, disk=disk_info, service_status=get_service_status())
 
 @app.route('/restart_service')
 def restart_service():
@@ -437,6 +491,9 @@ def save_settings():
     conf['FREE_SMS']['user_id'] = request.form.get('free_user', '')
     conf['FREE_SMS']['api_key'] = request.form.get('free_pass', '')
     conf['NTFY']['topic'] = request.form.get('ntfy_topic', '')
+    conf['EVENTS']['ntfy_motion'] = 'true' if request.form.get('ntfy_motion') else 'false'
+    conf['EVENTS']['ntfy_toggle'] = 'true' if request.form.get('ntfy_toggle') else 'false'
+    conf['EVENTS']['ntfy_on_block'] = 'true' if request.form.get('ntfy_on_block') else 'false'
     conf['EVENTS']['sms_motion'] = 'true' if request.form.get('sms_motion') else 'false'
     conf['EVENTS']['sms_toggle'] = 'true' if request.form.get('sms_toggle') else 'false'
     conf['EVENTS']['sms_on_block'] = 'true' if request.form.get('sms_on_block') else 'false'
@@ -451,7 +508,9 @@ def save_settings():
     conf.remove_section('DEVICES'); conf.add_section('DEVICES')
     for i, name in enumerate(request.form.getlist('device_name[]')):
         if name.strip(): conf['DEVICES'][f'dev_{i}'] = name.strip()
+    
     with open(CONF_PATH, 'w') as f: conf.write(f)
+    refresh_config_cache() 
     return redirect("./")
 
 @app.route('/video_feed')
@@ -495,8 +554,17 @@ def update_cam():
     if 'CAMERA' not in conf: conf['CAMERA'] = {}
     conf['CAMERA'][param] = value
     with open(CONF_PATH, 'w') as f: conf.write(f)
-    last_param_change = time.time(); log_event(f"CAM : Modification {param} -> {value}"); return "OK"
+    refresh_config_cache()
+    last_param_change = time.time()
+    log_event(f"CAM : Modification {param} -> {value}")
+    return "OK"
+    
+@app.route('/get_video/<filename>')
+def get_video(filename):
+    if not session.get('logged_in'): return redirect("./login")
+    return send_from_directory(VIDEO_DIR, filename)
 
 if __name__ == '__main__':
     auto_clean(); sync_alarm_with_presence()
     app.run(host='0.0.0.0', port=5000, threaded=True)
+
