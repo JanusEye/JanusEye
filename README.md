@@ -1,3 +1,5 @@
+🇫🇷 VERSION FRANÇAISE
+
 ====================================================
 ** 🛡️ JANUSEYE - SYSTÈME DE SURVEILLANCE
      "SILENCIEUX & INTELLIGENT" — Version v.1.0.4 **
@@ -88,3 +90,73 @@ conservées plus de 30 jours, sauf en cas de procédure judiciaire.
 ---
 **JanusEye 2026 : La sécurité qui se fait oublier.**
 sécurité qui se fait oublier.
+
+
+🇺🇸 ENGLISH VERSION
+
+====================================================
+** 🛡️ JANUSEYE - "QUIET & INTELLIGENT”
+      MONITORING SYSTEM — Version v.1.0.7 **
+====================================================
+
+💡 CONCEPT
+
+JanusEye is a silent step-up video alarm. Compared to traditional alarms, it does not emit a shrill sound but alerts you instantly via Notifications (NTFY), SMS and Email with supporting visual evidence.
+
+✨ STRENGTHS
+
+TRIPLE ALERT: Receive your alerts according to your preferences: 
+NTFY: Instant push notifications with photo on your 
+smartphone. 
+SMS: Quick text alert (via Free Mobile). 
+EMAIL: Complete report with several photos of the intrusion.
+
+DISCRETION: Capture high-resolution photos while moving 
+so as not to saturate the Raspberry Pi processor and save 
+storage space.
+
+HD & ASYNCHRONOUS PERFORMANCE: Capture in 720p HD. The writing of
+photos is managed in the background (Multi-threading) so that they never
+slow down the video stream.
+
+TRACEABILITY: The green detection frames are “engraved” on the
+images to instantly identify the origin of the movement.
+
+TOTAL AUTOMATION: Monitoring is activated automatically
+when the last occupant leaves the premises and deactivates as soon as
+the arrival of an authorized smartphone. No possible forgetting.
+
+REINFORCED SECURITY: Self-defense system recording and blocking 
+the IP ADDRESS after 3 unsuccessful PIN attempts.
+
+📦 ARCHIVE CONTENT 
+
+app.py: The main Flask server (Core of the system). 
+install_januseye.sh: Complete system installation script. 
+backup_januseye.sh: Script for saving your settings and SSL Certificates. 
+clean_videos.sh: Automatic cleaning (retentionable... 
+templates/: Modern, secure and “Responsive” Web interface. 
+config/: Setting files and intelligent management of.
+
+🛠️ INSTALLATION 
+
+Transfer: Copy the JanusEye folder to your Raspberry Pi to /home/user/ (replace "user" with your actual username). 
+Authorizer: In a terminal, enable the script: chmod +x /home/user/JanusEye/install_januseye.sh 
+Launch: Start the installation: sudo ./install_januseye.sh
+
+📱 USE 
+
+Web access: http://ip_address_of_pi:5000 (Fault code: 1234) 
+Silence Mode: In the event of an intrusion, photos are stored in the Gallery and sent by Email/SMS. 
+Presence Management: The system intelligently tracks the departure and arrival of occupants to avoid false alarms.
+
+⚖️ LEGAL WARNING AND PROPER USE
+
+The use of a video protection system is subject to strict regulatory requirements (GDPR and Internal Security Code): 
+
+Private Setting: Is the camera installed for surveillance of your private property (interior, garden, garage). 
+Public Space: It is prohibited to film public roads (streets, sidewalks) or neighboring properties. 
+Image rights: If you employ staff at home or Reentes des, you must inform them of the presence of the system. 
+Data retention: Images may not be kept for more than 30 days, except in the event of legal proceedings.
+
+JanusEye 2026: Security that is forgotten. security that is forgotten.
