@@ -57,16 +57,29 @@
             <small style="color: #888;">Note : Une stabilisation automatique de 5s est appliquée après chaque changement pour éviter les fausses alertes.</small>
         </div>
 
-        <div class="status-card">
+<div class="status-card">
             <h3 style="margin: 0; color: #00d9ff;">📊 STOCKAGE (SD CARD)</h3>
             <div class="progress-container">
                 <div class="progress-bar" style="width: {{ disk.percent }}%; 
                     background: {% if disk.percent > 90 %}#d32f2f{% elif disk.percent > 70 %}#fbc02d{% else %}#388e3c{% endif %};">
                 </div>
             </div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.75em; color: #aaa;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.75em; color: #aaa; margin-bottom: 15px;">
                 <span>Utilisé: <b>{{ disk.used }} Go</b></span>
                 <span>Libre: <b>{{ disk.free }} Go</b> ({{ 100 - disk.percent }}%)</span>
+            </div>
+        
+            <div id="backup-ui">
+                <button type="button" id="btn-backup" class="btn-add" 
+                        style="display: block; width: 100%; text-align: center; border-color: #00d9ff; color: #00d9ff; background: transparent; cursor: pointer; margin:0;" 
+                        onclick="runBackupAsync()">
+                    💾 LANCER UNE SAUVEGARDE MANUELLE
+                </button>
+        
+                <div id="backup-loader" style="display: none; text-align: center; padding: 10px; color: #ffeb3b; border: 1px dashed #ffeb3b; border-radius: 6px; font-size: 0.85em;">
+                    ⏳ SAUVEGARDE EN COURS... <br>
+                    <small style="color: #888;">Le script compresse vos données sur le Pi.</small>
+                </div>
             </div>
         </div>
 
@@ -209,13 +222,45 @@
         </div>
     </div>
 
-    <script>
-        function addDevice() {
-            const div = document.createElement('div');
-            div.className = 'device-row';
-            div.innerHTML = '<input type="text" name="device_name[]" placeholder="Nom de l\'appareil"><button type="button" class="btn-del" onclick="this.parentElement.remove()">X</button>';
-            document.getElementById('device-list').appendChild(div);
-        }
-    </script>
+<script>
+    function addDevice() {
+        const div = document.createElement('div');
+        div.className = 'device-row';
+        div.innerHTML = '<input type="text" name="device_name[]" placeholder="Nom de l\'appareil"><button type="button" class="btn-del" onclick="this.parentElement.remove()">X</button>';
+        document.getElementById('device-list').appendChild(div);
+    }
+
+    function runBackupAsync() {
+        const btn = document.getElementById('btn-backup');
+        const loader = document.getElementById('backup-loader');
+
+        btn.style.display = 'none';
+        loader.style.display = 'block';
+
+        fetch('./run_backup')
+            .then(response => {
+                if (response.ok) {
+                    loader.style.color = "#388e3c";
+                    loader.style.borderColor = "#388e3c";
+                    loader.innerHTML = "✅ SAUVEGARDE TERMINÉE !<br><small>Le fichier est prêt dans votre dossier Backups.</small>";
+                
+                    setTimeout(() => {
+                        loader.style.display = 'none';
+                        btn.style.display = 'block';
+                        loader.innerHTML = "⏳ SAUVEGARDE EN COURS...<br><small style='color: #888;'>Le script compresse vos données sur le Pi.</small>"; 
+                        loader.style.color = "#ffeb3b";
+                        loader.style.borderColor = "#ffeb3b";
+                    }, 5000);
+                } else {
+                    throw new Error('Erreur serveur');
+                }
+            })
+            .catch(error => {
+                alert("Erreur lors de la sauvegarde : " + error);
+                btn.style.display = 'block';
+                loader.style.display = 'none';
+            });
+    }
+</script>
 </body>
 </html>
