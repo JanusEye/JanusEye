@@ -215,18 +215,6 @@ def gen_frames():
                 _, buffer = cv2.imencode('.jpg', global_frame)
         yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
         time.sleep(0.04)
-        
-def save_photo_async(path, frame, boxes):
-    """ Enregistre l'image et dessine les cadres en arrière-plan """
-    try:
-        # On dessine les cadres sur l'image reçue
-        for (bx, by, bw, bh) in boxes:
-            cv2.rectangle(frame, (bx, by), (bx + bw, by + bh), (0, 255, 0), 2)
-        
-        # Enregistrement avec optimisation de vitesse
-        cv2.imwrite(path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
-    except Exception as e:
-        print(f"Erreur sauvegarde async : {e}")
 
 def camera_worker():
     global global_frame, alarm_armed, is_recording, last_email_time, last_sms_time, last_ntfy_time, last_param_change
@@ -316,25 +304,21 @@ def camera_worker():
                                 Thread(target=send_free_sms, args=(f"Mouvement detecte a {h_now}",), daemon=True).start()
                                 last_sms_time = time.time()
 
-# --- GESTION ENREGISTREMENT PHOTO (MULTI-THREAD) ---
+            # --- GESTION ENREGISTREMENT PHOTO (GALERIE & MAILS) ---
             if motion_timer > 0:
                 motion_timer -= 1
-                # On peut maintenant enregistrer plus souvent car c'est asynchrone !
-                if motion_timer % 1 == 0 and persistent_boxes:
-                    # On prépare l'image avec le timestamp
-                    f_to_save = draw_timestamp_with_bg(frame.copy())
+                # On enregistre seulement si on a des cadres à dessiner
+                if motion_timer % 2 == 0 and persistent_boxes:
+                    f_save = draw_timestamp_with_bg(frame.copy())
+                    for b in persistent_boxes:
+                        cv2.rectangle(f_save, (b[0], b[1]), (b[0]+b[2], b[1]+b[3]), (0, 255, 0), 2)
                     
                     fname = f"Photo_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')[:-4]}.jpg"
                     p = os.path.join(VIDEO_DIR, fname)
-                    
-                    # ON LANCE LA SAUVEGARDE DANS UN THREAD SÉPARÉ
-                    # On passe une COPIE des persistent_boxes pour éviter les conflits
-                    Thread(target=save_photo_async, args=(p, f_to_save, list(persistent_boxes)), daemon=True).start()
-                    
-                    # On ajoute le chemin pour les futurs mails
-                    if len(mail_paths) < 5: 
-                        mail_paths.append(p)
+                    if cv2.imwrite(p, f_save):
+                        if len(mail_paths) < 5: mail_paths.append(p)
                 
+                # Si la frame actuelle n'a plus de mouvement, on vide les cadres pour la suivante
                 if not current_boxes:
                     persistent_boxes = []
 
@@ -564,7 +548,17 @@ def get_video(filename):
     if not session.get('logged_in'): return redirect("./login")
     return send_from_directory(VIDEO_DIR, filename)
 
+@app.route('/run_backup')
+def run_backup():
+    try:
+        # On utilise check_call ou run pour attendre la fin du script 
+        # SI vous voulez que le message "Terminé" soit réel.
+        # Sinon, gardez Popen pour de l'instantané.
+        subprocess.run(['bash', os.path.join(BASE_DIR, 'backup_januseye.sh')], check=True)
+        return "OK", 200
+    except Exception as e:
+        return str(e), 500
+
 if __name__ == '__main__':
     auto_clean(); sync_alarm_with_presence()
     app.run(host='0.0.0.0', port=5000, threaded=True)
-
