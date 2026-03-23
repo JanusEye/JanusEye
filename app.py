@@ -18,7 +18,7 @@ from flask import send_file
 from flask import Flask, render_template, Response, request, redirect, session, send_from_directory, url_for
 
 app = Flask(__name__)
-app.secret_key = 'JanusEye_2026_Final_V107'
+app.secret_key = 'JanusEye_2026_Final_V201'
 
 # --- CONFIGURATION ---
 BASE_DIR = '/home/papy/JanusEye'
@@ -245,7 +245,15 @@ def camera_worker():
                 try:
                     w, h = map(int, current_res.split('x'))
                     cap.set(cv2.CAP_PROP_FRAME_WIDTH, w); cap.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
+                    
+                    # --- SÉCURITÉ REPLI (FALLBACK) ---
+                    # On teste si la caméra accepte de lire une image avec cette résolution
+                    ret, _ = cap.read()
+                    if not ret:
+                        log_event(f"ERREUR VIDEO : {current_res} rejeté par le pilote. Repli sur 640x480.")
+                        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640); cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
                 except:
+                    log_event("ERREUR CONFIG CAM : Paramètres invalides. Repli sur 640x480.")
                     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640); cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
                 time.sleep(1); continue
 
@@ -286,8 +294,8 @@ def camera_worker():
                         current_boxes.append((int(x*r_w), int(y*r_h), int(w_b*r_w), int(h_b*r_h)))
 
                 if current_boxes:
-                    motion_timer = 12 # Durée de l'enregistrement après détection
-                    persistent_boxes = current_boxes # On mémorise les cadres
+                    motion_timer = 12 
+                    persistent_boxes = current_boxes
                     if not is_recording:
                         is_recording = True; mail_paths = []; h_now = datetime.now().strftime("%H:%M:%S")
                         log_event("MOUVEMENT : Debut de l'enregistrement.")
@@ -306,10 +314,9 @@ def camera_worker():
                                 Thread(target=send_free_sms, args=(f"Mouvement detecte a {h_now}",), daemon=True).start()
                                 last_sms_time = time.time()
 
-            # --- GESTION ENREGISTREMENT PHOTO (GALERIE & MAILS) ---
+            # --- GESTION ENREGISTREMENT PHOTO ---
             if motion_timer > 0:
                 motion_timer -= 1
-                # On enregistre seulement si on a des cadres à dessiner
                 if motion_timer % 2 == 0 and persistent_boxes:
                     f_save = draw_timestamp_with_bg(frame.copy())
                     for b in persistent_boxes:
@@ -320,7 +327,6 @@ def camera_worker():
                     if cv2.imwrite(p, f_save):
                         if len(mail_paths) < 5: mail_paths.append(p)
                 
-                # Si la frame actuelle n'a plus de mouvement, on vide les cadres pour la suivante
                 if not current_boxes:
                     persistent_boxes = []
 
@@ -334,7 +340,6 @@ def camera_worker():
             last_gray = gray
             with lock:
                 global_frame = draw_timestamp_with_bg(frame.copy())
-                # Utilise current_boxes pour le live pour être hyper réactif
                 for b in current_boxes: 
                     cv2.rectangle(global_frame, (b[0], b[1]), (b[0]+b[2], b[1]+b[3]), (0, 255, 0), 2)
                 if is_recording: 
@@ -384,7 +389,6 @@ def login():
             if login_attempts[ip] == 3:
                 log_event(f"SECURITE : Blocage définitif de l'IP {ip}")
                 msg_b = f"⚠️ ALERTE : IP {ip} bloquée après 3 échecs PIN."
-                # Respect option NTFY on Block
                 if conf['EVENTS'].getboolean('ntfy_on_block', True): Thread(target=send_ntfy_alert, args=(msg_b,), daemon=True).start()
                 if conf['EVENTS'].getboolean('sms_on_block', False): Thread(target=send_free_sms, args=(msg_b,), daemon=True).start()
                 if conf['EVENTS'].getboolean('mail_security', False): Thread(target=send_mail_async, args=([], ip, "ALERTE SECURITE", msg_b), daemon=True).start()
@@ -402,7 +406,6 @@ def arm_webhook():
         else: log_event(f"PRESENCE : Desarmement MANUEL (IP: {ip})")
         if alarm_armed:
             alarm_armed, msg = False, f"DESACTIVE par {device}"; log_event(f"{msg} - IP: {ip}")
-            # Respect option NTFY Toggle
             if conf['EVENTS'].getboolean('ntfy_toggle', True): Thread(target=send_ntfy_alert, args=(f"🔓 {msg}",), daemon=True).start()
             if conf['EVENTS'].getboolean('sms_toggle', False): Thread(target=send_free_sms, args=(msg,), daemon=True).start()
             if conf['EVENTS'].getboolean('mail_toggle', False): Thread(target=send_mail_async, args=([], ip, "ETAT ALARME", msg), daemon=True).start()
@@ -410,7 +413,6 @@ def arm_webhook():
         if device_raw != 'Manuel': presence.discard(device.lower()); log_event(f"PRESENCE : Sortie de {device} (IP: {ip})")
         if (not presence or device_raw == 'Manuel') and not alarm_armed:
             alarm_armed, msg = True, f"ACTIVE par {device}"; log_event(f"{msg} - IP: {ip}"); auto_clean()
-            # Respect option NTFY Toggle
             if conf['EVENTS'].getboolean('ntfy_toggle', True): Thread(target=send_ntfy_alert, args=(f"🔒 {msg}",), daemon=True).start()
             if conf['EVENTS'].getboolean('sms_toggle', False): Thread(target=send_free_sms, args=(msg,), daemon=True).start()
             if conf['EVENTS'].getboolean('mail_toggle', False): Thread(target=send_mail_async, args=([], ip, "ETAT ALARME", msg), daemon=True).start()
@@ -557,9 +559,7 @@ def run_backup():
         return "OK", 200
     except Exception as e:
         return str(e), 500
-        
-# ... (Gardez tout le début du code identique jusqu'à delete_batch)
-
+    
 @app.route('/delete_batch', methods=['POST'])
 def delete_batch():
     if not session.get('logged_in'): 
@@ -569,7 +569,6 @@ def delete_batch():
         files = data.get('files', [])
         deleted_count = 0
         for filename in files:
-            # Sécurité pour ne supprimer que dans VIDEO_DIR
             safe_name = os.path.basename(filename)
             file_path = os.path.join(VIDEO_DIR, safe_name)
             if os.path.exists(file_path):
