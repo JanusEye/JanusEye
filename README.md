@@ -2,7 +2,7 @@
 
 ====================================================
 ** 🛡️ JANUSEYE - SYSTÈME DE SURVEILLANCE
-     "SILENCIEUX & INTELLIGENT" — Version v.1.0.7 **
+     "SILENCIEUX & INTELLIGENT" — Version v.2.0.1 **
 ====================================================
 
 💡 CONCEPT
@@ -96,7 +96,7 @@ sécurité qui se fait oublier.
 
 ====================================================
 ** 🛡️ JANUSEYE - "QUIET & INTELLIGENT”
-      MONITORING SYSTEM — Version v.1.0.7 **
+      MONITORING SYSTEM — Version v.2.0.1 **
 ====================================================
 
 💡 CONCEPT
