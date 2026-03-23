@@ -4,64 +4,91 @@
     <title>Archives JanusEye</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { background: #0a0a0a; color: white; font-family: sans-serif; text-align: center; margin: 0; }
-        .header-bar { padding: 20px; background: #111; border-bottom: 1px solid #333; position: sticky; top: 0; z-index: 100; }
+        body { background: #0a0a0a; color: white; font-family: sans-serif; text-align: center; margin: 0; padding-bottom: 80px; }
+        .header-bar { padding: 20px; background: #111; border-bottom: 1px solid #333; position: sticky; top: 0; z-index: 100; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; padding: 20px; }
-        .item { background: #1a1a1a; padding: 10px; border-radius: 8px; border: 1px solid #333; position: relative; }
+        .item { background: #1a1a1a; padding: 10px; border-radius: 8px; border: 1px solid #333; position: relative; transition: all 0.2s; }
+        .item.selected { border-color: #00d9ff; background: #002b33; box-shadow: 0 0 15px rgba(0, 217, 255, 0.2); }
+        .select-box { position: absolute; top: 10px; left: 10px; width: 22px; height: 22px; z-index: 20; cursor: pointer; accent-color: #00d9ff; }
         .item img { width: 100%; border-radius: 4px; display: block; cursor: pointer; border: 1px solid transparent; }
         .item img:hover { border-color: #555; }
-        .filename { font-size: 0.75em; color: #aaa; margin-top: 8px; }
-        .btn { display: inline-block; padding: 10px 20px; color: white; text-decoration: none; border-radius: 5px; border: 1px solid #444; font-size: 14px; margin: 5px; cursor: pointer; }
+        .filename { font-size: 0.75em; color: #aaa; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .btn { display: inline-block; padding: 10px 15px; color: white; text-decoration: none; border-radius: 5px; border: 1px solid #444; font-size: 13px; cursor: pointer; }
         .btn-back { background: #333; }
         .btn-danger { background: #800; border-color: #a00; }
+        .btn-select { background: #222; border-color: #555; }
         
-        /* Visionneuse (Overlay) */
-        #overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; justify-content: center; align-items: center; }
-        #overlay img { max-width: 95%; max-height: 85%; border: 2px solid #555; user-select: none; }
-        .nav-info { position: absolute; bottom: 20px; color: #aaa; font-size: 0.9em; width: 100%; pointer-events: none; }
+        .filter-group { display: flex; align-items: center; gap: 8px; background: #222; padding: 5px 10px; border-radius: 5px; border: 1px solid #444; }
+        #date-picker { background: transparent; color: white; border: none; outline: none; cursor: pointer; font-size: 13px; }
 
-        /* Boutons de navigation tactiles */
-        .touch-nav {
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            border: none;
-            padding: 30px 15px;
-            font-size: 30px;
-            cursor: pointer;
-            z-index: 1100;
-            border-radius: 5px;
-            transition: 0.3s;
-        }
-        .touch-nav:active { background: rgba(255, 255, 255, 0.3); }
+        #bulk-actions { display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #00d9ff; color: black; padding: 12px 25px; border-radius: 50px; box-shadow: 0 8px 32px rgba(0,0,0,0.8); z-index: 2000; gap: 15px; align-items: center; font-weight: bold; animation: slideUp 0.3s ease-out; }
+        @keyframes slideUp { from { bottom: -50px; opacity: 0; } to { bottom: 20px; opacity: 1; } }
+        .btn-bulk { background: none; border: none; font-weight: bold; cursor: pointer; color: black; font-size: 0.85em; display: flex; align-items: center; gap: 5px; }
+        .btn-bulk-del { color: #d32f2f; border-left: 1px solid rgba(0,0,0,0.1); padding-left: 15px; }
+        .btn-bulk-cancel { color: #555; border-right: 1px solid rgba(0,0,0,0.1); padding-right: 15px; font-size: 0.75em; }
+
+        #overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 3000; justify-content: center; align-items: center; }
+        #overlay img { max-width: 95%; max-height: 85%; border: 2px solid #555; }
+        .nav-info { position: absolute; bottom: 20px; color: #aaa; font-size: 0.8em; width: 100%; pointer-events: none; }
+        .touch-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255, 255, 255, 0.1); color: white; border: none; padding: 30px 15px; font-size: 30px; cursor: pointer; z-index: 3100; border-radius: 5px; }
         .prev-btn { left: 10px; }
         .next-btn { right: 10px; }
+        /* Style du séparateur de date */
+.date-separator {
+    grid-column: 1 / -1;
+    background: #1a1a1a;
+    color: #00d9ff;
+    padding: 12px 20px;
+    margin: 30px 0 15px 0;
+    border-radius: 6px;
+    font-size: 0.95em;
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between; /* Aligne la date à gauche et le compte à droite */
+    align-items: center;
+    border-left: 5px solid #00d9ff;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
 
-        /* Masquer les flèches sur PC si on veut un look épuré, ou les laisser pour la souris */
-        @media (min-width: 800px) {
-            .touch-nav { background: rgba(255, 255, 255, 0.05); }
-            .touch-nav:hover { background: rgba(255, 255, 255, 0.2); }
-        }
+.photo-count {
+    background: rgba(0, 217, 255, 0.1);
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.8em;
+    border: 1px solid rgba(0, 217, 255, 0.3);
+}
     </style>
 </head>
-
 <body>
     <div class="header-bar">
-        <h2>Archives Photos</h2>
-        <a href="./" class="btn btn-back">← Retour Direct</a>
+        <div>
+            <a href="./" class="btn btn-back">← Retour</a>
+            <button onclick="toggleSelectAll()" class="btn btn-select">Tout</button>
+            <button onclick="selectByDate('today')" class="btn btn-select" style="color:#00d9ff;">Aujourd'hui</button>
+        </div>
+        <div class="filter-group">
+            <span style="font-size: 12px; color: #888;">📅</span>
+            <input type="date" id="date-picker" onchange="selectByDate(this.value)">
+        </div>
         <a href="clear_gallery" class="btn btn-danger" onclick="return confirm('Vider toute la galerie ?');">Vider Tout</a>
+    </div>
+
+    <div id="bulk-actions">
+        <button class="btn-bulk btn-bulk-cancel" onclick="cancelSelection()">ANNULER</button>
+        <span id="selected-count">0</span>
+        <button class="btn-bulk" onclick="downloadSelected()">📥 TÉLÉCHARGER</button>
+        <button class="btn-bulk btn-bulk-del" onclick="deleteSelected()">🗑️ SUPPRIMER</button>
     </div>
 
     <div class="grid" id="main-grid">
         {% for file in files %}
-        <div class="item">
+        <div class="item" id="item-{{ loop.index0 }}">
+            <input type="checkbox" name="files" value="{{ file }}" class="select-box" onchange="updateSelectionUI({{ loop.index0 }})">
             <img src="./get_video/{{ file }}" class="thumb" onclick="openImg({{ loop.index0 }})">
             <div class="filename">{{ file }}</div>
             <div style="display: flex; gap: 5px; margin-top: 10px;">
-                <a href="./download/{{ file }}" style="flex: 1; background: #00d9ff; color: black; text-align: center; padding: 5px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.8em;">📥</a>
-                <a href="./delete_image/{{ file }}" style="flex: 1; background: #d32f2f; color: white; text-align: center; padding: 5px; border-radius: 4px; text-decoration: none; font-size: 0.8em;" onclick="return confirm('Supprimer ?')">🗑️</a>
+                <a href="./download/{{ file }}" style="flex: 1; background: #333; color: #00d9ff; text-align: center; padding: 5px; border-radius: 4px; text-decoration: none; font-size: 0.8em;">📥</a>
+                <a href="./delete_image/{{ file }}" style="flex: 1; background: #333; color: #d32f2f; text-align: center; padding: 5px; border-radius: 4px; text-decoration: none; font-size: 0.8em;" onclick="return confirm('Supprimer ?')">🗑️</a>
             </div>
         </div>
         {% endfor %}
@@ -70,13 +97,10 @@
     <div id="overlay">
         <button class="touch-nav prev-btn" onclick="changeImg(-1)">&#10094;</button>
         <button class="touch-nav next-btn" onclick="changeImg(1)">&#10095;</button>
-        
         <img id="overlay-img" src="" onclick="closeImg()">
-        
         <div class="nav-info">
             <span id="img-counter"></span><br>
-            Tactile : Glisser ou utiliser les flèches<br>
-            Clavier : [ ← ] [ → ] - [ ECHAP ] pour fermer
+            Tactile : Glisser | Clavier : [ ← ] [ → ] [ ECHAP ]
         </div>
     </div>
 
@@ -87,52 +111,179 @@
         const overlayImg = document.getElementById('overlay-img');
         const counter = document.getElementById('img-counter');
 
-        function openImg(index) {
-            currentIndex = index;
-            updateOverlay();
-            overlay.style.display = 'flex';
+        // --- NETTOYAGE AU CHARGEMENT ---
+        window.onload = function() {
+            document.getElementById('date-picker').value = "";
+            cancelSelection();
+        };
+
+        function updateSelectionUI(index) {
+            const item = document.getElementById('item-' + index);
+            if (!item) return;
+            const checkbox = item.querySelector('.select-box');
+            const bulkBar = document.getElementById('bulk-actions');
+            const countSpan = document.getElementById('selected-count');
+            
+            if (checkbox.checked) item.classList.add('selected');
+            else item.classList.remove('selected');
+            
+            const selected = document.querySelectorAll('.select-box:checked');
+            countSpan.innerText = selected.length;
+            bulkBar.style.display = selected.length > 0 ? 'flex' : 'none';
         }
 
-        function closeImg() {
-            overlay.style.display = 'none';
+        function cancelSelection() {
+            document.querySelectorAll('.select-box').forEach((cb, i) => {
+                cb.checked = false;
+                updateSelectionUI(i);
+            });
+            document.getElementById('bulk-actions').style.display = 'none';
         }
 
-        function changeImg(step) {
-            currentIndex = (currentIndex + step + images.length) % images.length;
-            updateOverlay();
+        function toggleSelectAll() {
+            const checkboxes = document.querySelectorAll('.select-box');
+            const anyUnchecked = Array.from(checkboxes).some(cb => !cb.checked);
+            checkboxes.forEach((cb, i) => {
+                cb.checked = anyUnchecked;
+                updateSelectionUI(i);
+            });
         }
 
-        function updateOverlay() {
-            overlayImg.src = images[currentIndex];
-            counter.innerText = `Photo ${currentIndex + 1} / ${images.length}`;
+        function selectByDate(targetDate) {
+            let searchStr = targetDate;
+            if (targetDate === 'today') {
+                searchStr = new Date().toISOString().split('T')[0];
+            }
+            const checkboxes = document.querySelectorAll('.select-box');
+            let found = 0;
+            checkboxes.forEach((cb, i) => {
+                if (cb.value.includes(searchStr)) {
+                    cb.checked = true;
+                    found++;
+                } else {
+                    cb.checked = false;
+                }
+                updateSelectionUI(i);
+            });
+            if(found === 0 && targetDate !== '') alert("Aucune photo pour le " + searchStr);
         }
 
-        // Navigation Clavier
+        function deleteSelected() {
+            const selectedFiles = Array.from(document.querySelectorAll('.select-box:checked')).map(cb => cb.value);
+            if (selectedFiles.length === 0) return;
+            if (!confirm(`Supprimer ${selectedFiles.length} photo(s) ?`)) return;
+
+            fetch('./delete_batch', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({files: selectedFiles})
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.href = window.location.pathname; 
+                } else {
+                    alert("Erreur lors de la suppression.");
+                }
+            });
+        }
+
+        function downloadSelected() {
+            const selectedFiles = Array.from(document.querySelectorAll('.select-box:checked')).map(cb => cb.value);
+            if (selectedFiles.length === 0) return;
+            
+            const btn = document.querySelector(".btn-bulk:not(.btn-bulk-cancel)");
+            const originalText = btn.innerHTML;
+            btn.innerHTML = "⏳ ZIP...";
+
+            fetch('./download_batch', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({files: selectedFiles})
+            })
+            .then(response => response.blob())
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `JanusEye_Archive_${new Date().getTime()}.zip`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                cancelSelection(); // On décoche tout proprement
+                btn.innerHTML = originalText;
+            })
+            .catch(error => {
+                alert("Erreur : " + error);
+                btn.innerHTML = originalText;
+            });
+        }
+
+        function openImg(index) { currentIndex = index; updateOverlay(); overlay.style.display = 'flex'; }
+        function closeImg() { overlay.style.display = 'none'; }
+        function changeImg(step) { currentIndex = (currentIndex + step + images.length) % images.length; updateOverlay(); }
+        function updateOverlay() { overlayImg.src = images[currentIndex]; counter.innerText = `Photo ${currentIndex + 1} / ${images.length}`; }
+
         window.onkeydown = function(e) {
             if (overlay.style.display === 'flex') {
-                if (e.key === "ArrowRight" || e.key === "Right") changeImg(1);
-                else if (e.key === "ArrowLeft" || e.key === "Left") changeImg(-1);
+                if (e.key === "ArrowRight") changeImg(1);
+                else if (e.key === "ArrowLeft") changeImg(-1);
                 else if (e.key === "Escape") closeImg();
             }
         };
+function insertDateSeparators() {
+    const items = Array.from(document.querySelectorAll('.item'));
+    let lastDate = "";
+    let countPerDay = {};
 
-        // --- GESTION DU BALAYAGE (SWIPE) POUR SMARTPHONE ---
-        let touchstartX = 0;
-        let touchendX = 0;
-
-        overlay.addEventListener('touchstart', e => {
-            touchstartX = e.changedTouches[0].screenX;
-        }, {passive: true});
-
-        overlay.addEventListener('touchend', e => {
-            touchendX = e.changedTouches[0].screenX;
-            handleGesture();
-        }, {passive: true});
-
-        function handleGesture() {
-            if (touchendX < touchstartX - 50) changeImg(1);  // Glisser vers la gauche -> Suivant
-            if (touchendX > touchstartX + 50) changeImg(-1); // Glisser vers la droite -> Précédent
+    // 1. Premier passage : on compte les photos par date
+    items.forEach(item => {
+        const filename = item.querySelector('.filename').innerText;
+        const match = filename.match(/(\d{4}-\d{2}-\d{2})/);
+        if (match) {
+            const date = match[1];
+            countPerDay[date] = (countPerDay[date] || 0) + 1;
         }
+    });
+
+    // 2. Second passage : on insère les bandeaux
+    items.forEach(item => {
+        const filename = item.querySelector('.filename').innerText;
+        const match = filename.match(/(\d{4}-\d{2}-\d{2})/);
+        
+        if (match) {
+            const currentDate = match[1];
+            if (currentDate !== lastDate) {
+                const separator = document.createElement('div');
+                separator.className = 'date-separator';
+                
+                // Formatage de la date en français
+                const dateObj = new Date(currentDate);
+                const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+                let dateLabel = dateObj.toLocaleDateString('fr-FR', options);
+                // Majuscule sur le jour
+                dateLabel = dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1);
+
+                const total = countPerDay[currentDate];
+                const unit = total > 1 ? "photos" : "photo";
+
+                separator.innerHTML = `
+                    <span>📅 ${dateLabel}</span>
+                    <span class="photo-count">${total} ${unit}</span>
+                `;
+                
+                item.parentNode.insertBefore(separator, item);
+                lastDate = currentDate;
+            }
+        }
+    });
+}
+
+// Toujours appeler dans window.onload
+window.onload = function() {
+    document.getElementById('date-picker').value = "";
+    cancelSelection();
+    insertDateSeparators(); 
+};
     </script>
 </body>
 </html>
