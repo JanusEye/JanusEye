@@ -1,16 +1,18 @@
 #!/bin/bash
 
 # --- CONFIGURATION DYNAMIQUE ---
-# Détecte l'utilisateur qui lance le script
-USER_NAME=$(whoami)
-# Détecte le dossier actuel où se trouve le script d'installation
-INSTALL_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# Détecte le vrai utilisateur (même si lancé avec sudo)
+IF_SUDO_USER=${SUDO_USER:-$(whoami)}
+USER_NAME=$IF_SUDO_USER
+
+# Détecte le dossier actuel de manière absolue
+INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICE_NAME="januseye.service"
 
 echo "------------------------------------------------"
 echo "   JanusEye 2026 - Installation Automatisée"
-echo "   Utilisateur : $USER_NAME"
-echo "   Dossier     : $INSTALL_DIR"
+echo "   Utilisateur détecté : $USER_NAME"
+echo "   Dossier d'installation : $INSTALL_DIR"
 echo "------------------------------------------------"
 
 # 1. Création de la structure des dossiers
@@ -31,7 +33,6 @@ cd "$INSTALL_DIR"
 if [ ! -d "venv" ]; then
     python3 -m venv venv
 fi
-# On utilise le chemin complet vers pip du venv pour plus de sécurité
 "$INSTALL_DIR/venv/bin/pip" install --upgrade pip
 "$INSTALL_DIR/venv/bin/pip" install flask opencv-python numpy requests
 
@@ -40,13 +41,13 @@ echo "[4/6] Réglage des droits d'exécution..."
 if [ -f "$INSTALL_DIR/clean_videos.sh" ]; then
     chmod +x "$INSTALL_DIR/clean_videos.sh"
 fi
-# On donne les droits au bon utilisateur détecté
-sudo chown -R $USER_NAME:$USER_NAME "$INSTALL_DIR"
+# On redonne la propriété de TOUT le dossier à l'utilisateur réel
+sudo chown -R "$USER_NAME:$USER_NAME" "$INSTALL_DIR"
 
 # 5. Création du service Systemd
 echo "[5/6] Configuration du service de démarrage..."
-# On utilise des variables pour rendre le fichier de service flexible
-sudo bash -c "cat > /etc/systemd/system/$SERVICE_NAME" << EOF
+# On écrit le fichier temporairement puis on le déplace avec sudo pour éviter les erreurs de redirection
+cat << EOF > januseye.service.tmp
 [Unit]
 Description=Serveur de Surveillance JanusEye
 After=network.target
@@ -61,6 +62,8 @@ RestartSec=10
 [Install]
 WantedBy=multi-user.target
 EOF
+
+sudo mv januseye.service.tmp /etc/systemd/system/$SERVICE_NAME
 
 # 6. Activation du service
 echo "[6/6] Activation et lancement..."
