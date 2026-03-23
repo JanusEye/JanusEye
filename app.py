@@ -7,6 +7,8 @@ import smtplib
 import requests
 import shutil
 import subprocess
+import zipfile
+import io
 from threading import Thread, Lock
 from datetime import datetime
 from email.mime.text import MIMEText
@@ -551,13 +553,57 @@ def get_video(filename):
 @app.route('/run_backup')
 def run_backup():
     try:
-        # On utilise check_call ou run pour attendre la fin du script 
-        # SI vous voulez que le message "Terminé" soit réel.
-        # Sinon, gardez Popen pour de l'instantané.
         subprocess.run(['bash', os.path.join(BASE_DIR, 'backup_januseye.sh')], check=True)
         return "OK", 200
     except Exception as e:
         return str(e), 500
+        
+# ... (Gardez tout le début du code identique jusqu'à delete_batch)
+
+@app.route('/delete_batch', methods=['POST'])
+def delete_batch():
+    if not session.get('logged_in'): 
+        return "Unauthorized", 401
+    try:
+        data = request.get_json()
+        files = data.get('files', [])
+        deleted_count = 0
+        for filename in files:
+            # Sécurité pour ne supprimer que dans VIDEO_DIR
+            safe_name = os.path.basename(filename)
+            file_path = os.path.join(VIDEO_DIR, safe_name)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                deleted_count += 1
+        return {"status": "success", "deleted": deleted_count}, 200
+    except Exception as e:
+        return str(e), 500
+    
+@app.route('/download_batch', methods=['POST'])
+def download_batch():
+    if not session.get('logged_in'): 
+        return "Unauthorized", 401
+    data = request.get_json()
+    files = data.get('files', [])
+    
+    if not files:
+        return "No files selected", 400
+
+    memory_file = io.BytesIO()
+    with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for filename in files:
+            safe_name = os.path.basename(filename)
+            file_path = os.path.join(VIDEO_DIR, safe_name)
+            if os.path.exists(file_path):
+                zf.write(file_path, arcname=safe_name)
+    
+    memory_file.seek(0)
+    return send_file(
+        memory_file,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name=f"archive_januseye_{datetime.now().strftime('%Y%m%d_%H%M')}.zip"
+    )
 
 if __name__ == '__main__':
     auto_clean(); sync_alarm_with_presence()
