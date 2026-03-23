@@ -57,7 +57,7 @@
             <small style="color: #888;">Note : Une stabilisation automatique de 5s est appliquée après chaque changement pour éviter les fausses alertes.</small>
         </div>
 
-<div class="status-card">
+		<div class="status-card">
             <h3 style="margin: 0; color: #00d9ff;">📊 STOCKAGE (SD CARD)</h3>
             <div class="progress-container">
                 <div class="progress-bar" style="width: {{ disk.percent }}%; 
@@ -73,12 +73,12 @@
                 <button type="button" id="btn-backup" class="btn-add" 
                         style="display: block; width: 100%; text-align: center; border-color: #00d9ff; color: #00d9ff; background: transparent; cursor: pointer; margin:0;" 
                         onclick="runBackupAsync()">
-                    💾 LANCER UNE SAUVEGARDE MANUELLE
+                    💾 SAUVEGARDER LA CONFIGURATION
                 </button>
         
-                <div id="backup-loader" style="display: none; text-align: center; padding: 10px; color: #ffeb3b; border: 1px dashed #ffeb3b; border-radius: 6px; font-size: 0.85em;">
+                <div id="backup-loader" style="display: none; text-align: center; padding: 10px; color: #ffeb3b; border: 1px dashed #ffeb3b; border-radius: 6px; font-size: 0.85em; margin-top: 10px;">
                     ⏳ SAUVEGARDE EN COURS... <br>
-                    <small style="color: #888;">Le script compresse vos données sur le Pi.</small>
+                    <small style="color: #888;">Compression du système et des réglages (hors vidéos).</small>
                 </div>
             </div>
         </div>
@@ -242,12 +242,12 @@
                 if (response.ok) {
                     loader.style.color = "#388e3c";
                     loader.style.borderColor = "#388e3c";
-                    loader.innerHTML = "✅ SAUVEGARDE TERMINÉE !<br><small>Le fichier est prêt dans votre dossier Backups.</small>";
+                    loader.innerHTML = "✅ SAUVEGARDE TERMINÉE !<br><small style='color: #888;'>Compression du système et des réglages (hors vidéos).</small><br><small>Le fichier est prêt dans votre dossier Backups.</small>";
                 
                     setTimeout(() => {
                         loader.style.display = 'none';
                         btn.style.display = 'block';
-                        loader.innerHTML = "⏳ SAUVEGARDE EN COURS...<br><small style='color: #888;'>Le script compresse vos données sur le Pi.</small>"; 
+                        loader.innerHTML = "⏳ SAUVEGARDE EN COURS... <br><small style='color: #888;'>Compression du système et des réglages (hors vidéos).</small>"; 
                         loader.style.color = "#ffeb3b";
                         loader.style.borderColor = "#ffeb3b";
                     }, 5000);
