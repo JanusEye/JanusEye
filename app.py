@@ -20,12 +20,15 @@ from flask import Flask, render_template, Response, request, redirect, session, 
 app = Flask(__name__)
 app.secret_key = 'JanusEye_2026_Final_V201'
 
-# --- CONFIGURATION ---
-BASE_DIR = '/home/papy/JanusEye'
-CONF_PATH = f'{BASE_DIR}/config/januseye.conf'
-VIDEO_DIR = f'{BASE_DIR}/videos'
-LOG_FILE = f'{BASE_DIR}/logs/januseye.log'
-PRESENCE_FILE = f'{BASE_DIR}/config/presence.txt'
+# --- CONFIGURATION DYNAMIQUE (UNIVERSELLE) ---
+# Détecte automatiquement le dossier racine où se trouve app.py
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Construction des chemins de manière sécurisée (os.path.join)
+CONF_PATH = os.path.join(BASE_DIR, 'config', 'januseye.conf')
+VIDEO_DIR = os.path.join(BASE_DIR, 'videos')
+LOG_FILE = os.path.join(BASE_DIR, 'logs', 'januseye.log')
+PRESENCE_FILE = os.path.join(BASE_DIR, 'config', 'presence.txt')
 
 # --- ÉTAT GLOBAL ---
 alarm_armed = True
