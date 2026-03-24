@@ -18,13 +18,11 @@ from flask import send_file
 from flask import Flask, render_template, Response, request, redirect, session, send_from_directory, url_for
 
 app = Flask(__name__)
-app.secret_key = 'JanusEye_2026_Final_V201'
+app.secret_key = 'JanusEye_2026_Final_V202'
 
 # --- CONFIGURATION DYNAMIQUE (UNIVERSELLE) ---
-# Détecte automatiquement le dossier racine où se trouve app.py
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Construction des chemins de manière sécurisée (os.path.join)
 CONF_PATH = os.path.join(BASE_DIR, 'config', 'januseye.conf')
 VIDEO_DIR = os.path.join(BASE_DIR, 'videos')
 LOG_FILE = os.path.join(BASE_DIR, 'logs', 'januseye.log')
@@ -229,7 +227,7 @@ def camera_worker():
     motion_timer = 0
     mail_paths = []
     warmup_frames = 0
-    persistent_boxes = [] # Pour garder les cadres durant la sauvegarde
+    persistent_boxes = [] 
 
     while True:
         if alarm_armed:
@@ -242,22 +240,25 @@ def camera_worker():
                 last_param_change = time.time(); time.sleep(1)
 
             if cap is None or not cap.isOpened():
-                cap = cv2.VideoCapture(0)
+                # --- MODIFICATION DEMANDÉE : V4L2 + MJPG ---
+                cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
+                cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+                
                 current_res = target_res
                 warmup_frames = 0
                 try:
                     w, h = map(int, current_res.split('x'))
-                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, w); cap.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
+                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, w)
+                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
                     
-                    # --- SÉCURITÉ REPLI (FALLBACK) ---
-                    # On teste si la caméra accepte de lire une image avec cette résolution
                     ret, _ = cap.read()
                     if not ret:
-                        log_event(f"ERREUR VIDEO : {current_res} rejeté par le pilote. Repli sur 640x480.")
-                        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640); cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                        log_event(f"ERREUR VIDEO : {current_res} rejeté. Repli sécurisé.")
+                        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
                 except:
-                    log_event("ERREUR CONFIG CAM : Paramètres invalides. Repli sur 640x480.")
-                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640); cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
                 time.sleep(1); continue
 
             success, frame = cap.read()
