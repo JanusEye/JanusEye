@@ -1,162 +1,153 @@
 🇫🇷 VERSION FRANÇAISE
 
 ====================================================
-** 🛡️ JANUSEYE - SYSTÈME DE SURVEILLANCE
-     "SILENCIEUX & INTELLIGENT" — Version v.2.0.1 **
-====================================================
+** 🛡️ JANUSEYE — SYSTÈME DE SURVEILLANCE "SILENCIEUX & INTELLIGENT" **
+** Version v.2.0.3 (Mars 2026) **
 
 💡 CONCEPT
+JanusEye est une sentinelle vidéo intelligente pour Raspberry Pi et PC
+Linux. Contrairement aux alarmes bruyantes, il agit avec discrétion en
+vous alertant instantanément par Notifications (NTFY), SMS et Email
+avec preuves visuelles à l'appui.
 
-JanusEye est une alarme silencieuse par détection vidéo. Contrairement
- aux alarmes classiques, il n'émet aucun son strident mais vous alerte
-  instantanément par Notifications (NTFY), SMS et Email avec preuves
-   visuelles à l'appui.
+✨ POINTS FORTS (V2.0.3)
 
-✨ POINTS FORTS
+    TRIPLE ALERTE : Notifications Push (NTFY) avec photo, SMS (Free
+    Mobile) et Email complet.
 
-    TRIPLE ALERTE : Recevez vos alertes selon vos préférences :
-        NTFY : Notifications push instantanées avec photo sur votre
-        smartphone.
-        SMS : Alerte texte rapide (via Free Mobile).
-        EMAIL : Rapport complet avec plusieurs clichés de l'intrusion.
+    COMPATIBILITÉ UNIVERSELLE : Nouveau script d'installation détectant
+    automatiquement votre matériel (PC ou Raspberry Pi) et configurant
+    le Mode Legacy pour les caméras CSI (nappes).
 
-    DISCRÉTION : Capture de photos haute résolution lors des mouvements
-     pour ne pas saturer le processeur du Raspberry Pi et économiser 
-     l'espace de stockage.
+    DISCRÉTION & PERF : Capture HD 720p asynchrone (Multi-threading)
+    pour ne jamais ralentir le flux, même sur un Pi Zero.
 
-    PERFORMANCE HD & ASYNCHRONE : Capture en 720p HD. L'écriture des
-    photos est gérée en arrière-plan (Multi-threading) pour ne jamais
-    ralentir le flux vidéo.
+    SÉCURITÉ IP : Protection contre les intrusions de l'interface :
+    blocage automatique de l'adresse IP après 3 codes PIN erronés
+    (stockage en mémoire vive pour plus de sécurité).
 
-    TRAÇABILITÉ : Les cadres de détection verts sont "gravés" sur les
-    images pour identifier instantanément l'origine du mouvement.
+    GESTION DE PRÉSENCE : Activation/Désactivation automatique basée
+    sur la détection de votre smartphone.
 
-    AUTOMATISATION TOTALE : La surveillance s'active automatiquement
-    quand le dernier occupant quitte les lieux et se désactive dès 
-    l'arrivée d'un smartphone autorisé. Aucun oubli possible.
+    STOCKAGE OPTIMISÉ : Installation complète ultra-légère (< 5.3 Go)
+    pour préserver vos cartes SD.
 
-    SÉCURITÉ RENFORCÉE : Système d'autodéfense enregistrant et bloquan
-     l'ADRESSE IP après 3 tentatives infructueuses du code PIN.
+📦 CONTENU DE L'ARCHIVE
 
- 📦 CONTENU DE L'ARCHIVE
+    app.py : Le cœur du système (Serveur Flask).
 
-* **app.py** : Le serveur Flask principal (Cœur du système).
-* **install_januseye.sh** : Script d'installation système complet.
-* **backup_januseye.sh** : Script de sauvegarde de vos réglages et
-certificats SSL.
-* **clean_videos.sh** : Nettoyage automatique (rétention paramétrable).
-* **templates/** : Interface Web moderne, sécurisée et "Responsive".
-* **config/** : Fichiers de réglages et gestion intelligente de présence.
+    install_januseye.sh : Script d'installation universel et intelligent.
 
----
+    uninstall_januseye.sh : Script de désinstallation propre.
 
-🛠️ INSTALLATION
+    backup_januseye.sh : Sauvegarde de vos réglages et certificats.
 
-1.  **Transférer** : Copiez le dossier `JanusEye` sur votre Raspberry
-Pi dans `/home/user/` (remplacez "user" par votre nom d'utilisateur
-réel).
-2.  **Autoriser** : Dans un terminal, rendez le script exécutable :
-    `chmod +x /home/user/JanusEye/install_januseye.sh`
-3.  **Lancer** : Démarrez l'installation automatisée :
-    `sudo ./install_januseye.sh`
+    clean_videos.sh : Gestion automatique de l'espace disque.
 
----
+    logs/ : Dossier contenant les journaux système (januseye.log).
 
-📱 UTILISATION
+    videos/ : Dossier de stockage des captures d'alertes.
 
-* **Accès Web** : `http://adresse_ip_du_pi:5000` (Code PIN par défaut :
-**1234**)
-* **Mode Silence** : En cas d'intrusion, les photos sont stockées dans
-la Galerie et envoyées par Email/SMS.
-* **Gestion Présence** : Le système gère intelligemment le départ et
-l'arrivée des occupants pour éviter les fausses alertes.
+    templates/ : banned.html, galerie.html, index.html, login.html,
+    settings.html.
 
----
+    config/ : settings.json, presence.txt.
 
-⚖️ AVERTISSEMENT LÉGAL ET BON USAGE
+🛠️ INSTALLATION & MISE À JOUR
 
-L'utilisation d'un système de vidéoprotection est soumise à un cadre
-réglementaire strict (**RGPD** et Code de la sécurité intérieure) :
+    Transférer : Copiez le dossier JanusEye dans votre répertoire
+    personnel (ex: /home/pi/).
 
-* **Cadre Privé** : La caméra doit être installée exclusivement pour
-la surveillance de votre propriété privée (intérieur, jardin, garage).
-* **Espace Public** : Il est strictement interdit de filmer la voie
-publique (rue, trottoir) ou les propriétés voisines.
-* **Droit à l'image** : Si vous employez du personnel à domicile ou
-recevez des invités, vous devez les informer de la présence du système.
-* **Conservation des données** : Les images ne doivent pas être
-conservées plus de 30 jours, sauf en cas de procédure judiciaire.
+    Autoriser : chmod +x ~/JanusEye/install_januseye.sh
 
----
-**JanusEye 2026 : La sécurité qui se fait oublier.**
-sécurité qui se fait oublier.
+    Lancer : sudo ~/JanusEye/install_januseye.sh
+
+    Note : Si le script active le mode caméra Legacy, un redémarrage
+    (sudo reboot) sera nécessaire.
+
+🗑️ DÉSINSTALLATION
+Pour retirer le service et nettoyer le système :
+chmod +x ~/JanusEye/uninstall_januseye.sh && ./~/JanusEye/uninstall_januseye.sh
 
 
 🇺🇸 ENGLISH VERSION
 
 ====================================================
-** 🛡️ JANUSEYE - "QUIET & INTELLIGENT”
-      MONITORING SYSTEM — Version v.2.0.1 **
-====================================================
+** 🛡️ JANUSEYE — "QUIET & INTELLIGENT" MONITORING SYSTEM **
+** Version v.2.0.3 (March 2026) **
 
 💡 CONCEPT
+JanusEye is a smart video sentinel for Raspberry Pi and Linux PCs.
+Unlike noisy alarms, it acts discreetly by instantly alerting you via
+Notifications (NTFY), SMS, and Email with visual evidence.
 
-JanusEye is a silent step-up video alarm. Compared to traditional alarms, it does not emit a shrill sound but alerts you instantly via Notifications (NTFY), SMS and Email with supporting visual evidence.
+✨ STRENGTHS (V2.0.3)
 
-✨ STRENGTHS
+    TRIPLE ALERT: Push Notifications (NTFY) with photo, SMS (Free
+    Mobile), and detailed Email.
 
-TRIPLE ALERT: Receive your alerts according to your preferences: 
-NTFY: Instant push notifications with photo on your 
-smartphone. 
-SMS: Quick text alert (via Free Mobile). 
-EMAIL: Complete report with several photos of the intrusion.
+    UNIVERSAL COMPATIBILITY: New installation script that auto-detects
+    hardware (PC or Raspberry Pi) and configures Legacy Mode for CSI
+    (ribbon) cameras.
 
-DISCRETION: Capture high-resolution photos while moving 
-so as not to saturate the Raspberry Pi processor and save 
-storage space.
+    DISCRETION & PERF: Asynchronous 720p HD capture (Multi-threading)
+    to ensure smooth streaming even on a Pi Zero.
 
-HD & ASYNCHRONOUS PERFORMANCE: Capture in 720p HD. The writing of
-photos is managed in the background (Multi-threading) so that they never
-slow down the video stream.
+    IP SECURITY: Interface intrusion protection: automatic IP address
+    blocking after 3 incorrect PIN attempts (stored in RAM for extra
+    security).
 
-TRACEABILITY: The green detection frames are “engraved” on the
-images to instantly identify the origin of the movement.
+    PRESENCE MANAGEMENT: Automatic Arm/Disarm based on smartphone
+    detection.
 
-TOTAL AUTOMATION: Monitoring is activated automatically
-when the last occupant leaves the premises and deactivates as soon as
-the arrival of an authorized smartphone. No possible forgetting.
+    OPTIMIZED STORAGE: Ultra-light full install (< 5.3 GB) to extend
+    SD card lifespan.
 
-REINFORCED SECURITY: Self-defense system recording and blocking 
-the IP ADDRESS after 3 unsuccessful PIN attempts.
+📦 ARCHIVE CONTENT
 
-📦 ARCHIVE CONTENT 
+    app.py: Main Flask server (Core).
 
-app.py: The main Flask server (Core of the system). 
-install_januseye.sh: Complete system installation script. 
-backup_januseye.sh: Script for saving your settings and SSL Certificates. 
-clean_videos.sh: Automatic cleaning (retentionable... 
-templates/: Modern, secure and “Responsive” Web interface. 
-config/: Setting files and intelligent management of.
+    install_januseye.sh: Universal and smart installation script.
 
-🛠️ INSTALLATION 
+    uninstall_januseye.sh: Clean uninstallation script.
 
-Transfer: Copy the JanusEye folder to your Raspberry Pi to /home/user/ (replace "user" with your actual username). 
-Authorizer: In a terminal, enable the script: chmod +x /home/user/JanusEye/install_januseye.sh 
-Launch: Start the installation: sudo ./install_januseye.sh
+    backup_januseye.sh: Backup of settings and certificates.
 
-📱 USE 
+    clean_videos.sh: Automatic disk space management.
 
-Web access: http://ip_address_of_pi:5000 (Fault code: 1234) 
-Silence Mode: In the event of an intrusion, photos are stored in the Gallery and sent by Email/SMS. 
-Presence Management: The system intelligently tracks the departure and arrival of occupants to avoid false alarms.
+    logs/: Directory for system logs (januseye.log).
 
-⚖️ LEGAL WARNING AND PROPER USE
+    videos/: Storage directory for alert captures.
 
-The use of a video protection system is subject to strict regulatory requirements (GDPR and Internal Security Code): 
+    templates/: banned.html, galerie.html, index.html, login.html,
+    settings.html.
 
-Private Setting: Is the camera installed for surveillance of your private property (interior, garden, garage). 
-Public Space: It is prohibited to film public roads (streets, sidewalks) or neighboring properties. 
-Image rights: If you employ staff at home or Reentes des, you must inform them of the presence of the system. 
-Data retention: Images may not be kept for more than 30 days, except in the event of legal proceedings.
+    config/: settings.json, presence.txt.
 
-JanusEye 2026: Security that is forgotten. security that is forgotten.
+🛠️ INSTALLATION & UPDATE
+
+    Transfer: Copy the JanusEye folder to your home directory
+    (e.g., /home/pi/).
+
+    Authorize: chmod +x ~/JanusEye/install_januseye.sh
+
+    Launch: sudo ~/JanusEye/install_januseye.sh
+
+    Note: If the script enables Legacy Camera Mode, a reboot
+    (sudo reboot) will be required.
+
+🗑️ UNINSTALLATION
+To remove the service and clean the system:
+chmod +x ~/JanusEye/uninstall_januseye.sh && ./~/JanusEye/uninstall_januseye.sh
+
+
+⚖️ AVERTISSEMENT / LEGAL WARNING
+
+    FR : Ne filmez que votre propriété privée. Il est interdit de
+    filmer la voie publique ou les voisins (RGPD).
+
+    EN: Only monitor your private property. Filming public roads
+    or neighbors is strictly prohibited (GDPR).
+
+JanusEye 2026 : La sécurité qui se fait oublier / Security that is forgotten.
+
